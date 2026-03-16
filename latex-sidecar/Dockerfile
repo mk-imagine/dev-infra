@@ -15,12 +15,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create devuser with UID 1000 (cleaner on Debian)
 RUN useradd -m -u 1000 devuser
 
+# Copy package list (done as root, readable by all)
+COPY latex_packages.txt /tmp/latex-packages.txt
+
 # Switch to devuser to install TinyTeX
 USER devuser
 WORKDIR /home/devuser
 
 # Install TinyTeX
 RUN wget -qO- "https://yihui.org/tinytex/install-bin-unix.sh" | sh
+
+# Install extra LaTeX packages (filter out macOS-only .universal-darwin entries)
+RUN grep -v -E '(\.universal-darwin|^#|^[[:space:]]*$)' /tmp/latex-packages.txt | \
+    xargs /home/devuser/.TinyTeX/bin/*/tlmgr install
 
 # Switch back to root to set up staging
 USER root

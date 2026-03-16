@@ -1,0 +1,185 @@
+# =============================================================================
+# TeX Live Package List for latex-sidecar
+# Installed into the latex-shared volume via tlmgr.
+# Comments and blank lines are stripped at install time by the Dockerfile.
+# Architecture-specific packages (e.g. .aarch64-linux) are auto-resolved
+# by tlmgr and do not need to be listed here.
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# TeX / LaTeX Core
+# -----------------------------------------------------------------------------
+tex                     # Core TeX engine and primitives
+latex                   # LaTeX macro package
+latex-bin               # LaTeX executable binaries
+plain                   # Plain TeX format and macros
+etex                    # e-TeX extended TeX engine
+kpathsea                # Path-searching library used by all TeX tools
+tex-ini-files           # Initialization files for TeX formats
+latexconfig             # LaTeX configuration and format setup
+texlive.infra           # TeX Live infrastructure (tlmgr itself)
+texlive-scripts         # Core TeX Live utility scripts
+texlive-scripts-extra   # Additional TeX Live management scripts
+metafont                # Metafont font description language and compiler
+mfware                  # Metafont post-processing utilities (gftodvi, etc.)
+knuth-lib               # Knuth's original font and macro libraries
+latexmk                 # Perl script for fully-automated LaTeX compilation
+tools                   # Standard LaTeX tools bundle (array, tabularx, etc.)
+
+
+# -----------------------------------------------------------------------------
+# LaTeX3 Programming Layer
+# -----------------------------------------------------------------------------
+l3kernel                # LaTeX3 kernel (expl3 programming interface)
+l3backend               # LaTeX3 backend interface for PDF/DVI output
+l3packages              # LaTeX3 high-level packages (xparse, xtemplate, etc.)
+
+
+# -----------------------------------------------------------------------------
+# PDF / Output Drivers
+# -----------------------------------------------------------------------------
+pdftex                  # pdfTeX engine — generates PDF directly from TeX
+dvipdfmx                # DVI-to-PDF converter (used by XeTeX)
+dvips                   # DVI-to-PostScript converter
+epstopdf                # EPS-to-PDF command-line conversion utility
+epstopdf-pkg            # LaTeX package for on-the-fly EPS-to-PDF conversion
+extractbb               # Extract bounding box info from graphics files
+
+
+# -----------------------------------------------------------------------------
+# Fonts
+# -----------------------------------------------------------------------------
+cm                      # Computer Modern — TeX's default font family
+ec                      # European Computer Modern (adds accented characters)
+lm                      # Latin Modern — scalable successor to Computer Modern
+lm-math                 # Latin Modern Math OpenType font
+amsfonts                # AMS fonts (Euler, blackboard bold, extra symbols)
+psnfss                  # PostScript font support (Helvetica, Times, etc.)
+doublestroke            # Double-struck / blackboard bold font (ℝ, ℤ, etc.)
+inconsolata             # Inconsolata monospace font (used in code listings)
+helvetic                # Helvetica font metrics
+times                   # Times Roman font metrics
+symbol                  # Symbol font metrics
+zapfding                # Zapf Dingbats font metrics
+fontspec                # Font selection for XeTeX and LuaTeX (OpenType/TrueType)
+latex-fonts             # Font metric and map files bundled with LaTeX
+glyphlist               # Adobe glyph name list (maps glyph names to Unicode)
+modes                   # Metafont mode definitions for different output devices
+
+
+# -----------------------------------------------------------------------------
+# Math
+# -----------------------------------------------------------------------------
+amsmath                 # AMS math environments (align, gather, equation, etc.)
+amscls                  # AMS document classes and amsthm theorem environments
+cancel                  # Strike-through / cancel notation in math (psy772)
+unicode-math            # OpenType math fonts in XeTeX/LuaTeX
+lualatex-math           # Math mode fixes and enhancements for LuaLaTeX
+
+
+# -----------------------------------------------------------------------------
+# Graphics
+# -----------------------------------------------------------------------------
+graphics                # Core graphics inclusion (includegraphics, color)
+graphics-cfg            # Graphics driver configuration file
+graphics-def            # Graphics driver definitions (pdftex, dvips, etc.)
+xcolor                  # Extended color support with named colors and models
+
+
+# -----------------------------------------------------------------------------
+# Typesetting and Layout
+# -----------------------------------------------------------------------------
+geometry                # Page dimensions and margin control
+booktabs                # Publication-quality table rules (\toprule, etc.)
+float                   # Improved float placement ([H] specifier, etc.)
+listings                # Source code listing with syntax highlighting
+fancyvrb                # Enhanced verbatim environments
+framed                  # Framed, shaded, and boxed text regions
+setspace                # Line spacing control (\doublespacing, etc.)
+mdwtools                # Mark Wooding's tools: mdwlist, mdwtab, etc.
+
+
+# -----------------------------------------------------------------------------
+# Bibliography
+# -----------------------------------------------------------------------------
+bibtex                  # BibTeX bibliography processor
+natbib                  # Flexible citation commands for author-year and numeric styles
+
+
+# -----------------------------------------------------------------------------
+# PDF Features and Hyperlinks
+# -----------------------------------------------------------------------------
+hyperref                # Hyperlinks, PDF metadata, bookmarks, and cross-refs
+bookmark                # Fine-grained PDF bookmark control (extends hyperref)
+hycolor                 # Color support for hyperref links
+pdfescape               # Escape special characters in PDF strings
+gettitlestring          # Sanitize title strings for use in PDF bookmarks
+rerunfilecheck          # Detect when auxiliary files have changed (trigger rerun)
+
+
+# -----------------------------------------------------------------------------
+# Low-level LaTeX Programming Utilities
+# -----------------------------------------------------------------------------
+etoolbox                # e-TeX-based toolkit: hooks, conditionals, list macros
+etexcmds                # Wrappers for e-TeX primitives
+ltxcmds                 # LaTeX command utilities used by many packages
+letltxmacro             # Robust \let for LaTeX macros
+iftex                   # Conditionals for detecting TeX engine (pdftex, xetex, etc.)
+infwarerr               # Standardized warning and error reporting macros
+filehook                # Hooks for file input events (\InputIfFileExists, etc.)
+kvoptions               # Key-value option processing for packages
+kvsetkeys               # Set key-value pairs with validation
+kvdefinekeys            # Define key-value keys for packages
+xkeyval                 # Extended key-value system with additional key types
+intcalc                 # Integer arithmetic without e-TeX
+bigintcalc              # Arbitrary-precision integer arithmetic macros
+refcount                # Use counter values from cross-references
+uniquecounter           # Allocate unique counters for internal use
+stringenc               # Convert strings between encodings
+atbegshi                # Insert code at the beginning of each TeX shipout
+atveryend               # Insert code at the very end of the document
+auxhook                 # Hook into .aux file read/write operations
+firstaid                # Patches for compatibility issues in the LaTeX kernel
+ctablestack             # Stack data structure for use in table construction
+bitset                  # Bit-set data structures in LaTeX macros
+pdftexcmds              # Wrappers for pdfTeX primitives, usable in all engines
+
+
+# -----------------------------------------------------------------------------
+# Unicode and Language Support
+# -----------------------------------------------------------------------------
+babel                   # Multilingual typesetting (language rules, captions, etc.)
+hyph-utf8               # UTF-8 encoded hyphenation patterns for many languages
+hyphen-base             # Core English hyphenation patterns
+dehyph                  # German hyphenation patterns
+unicode-data            # Unicode character database (categories, properties, etc.)
+euenc                   # Unicode font encodings for XeTeX/fontspec
+xunicode                # Unicode input support for XeTeX
+tipa                    # International Phonetic Alphabet (IPA) fonts and macros
+selnolig                # Suppress typographic ligatures selectively
+
+
+# -----------------------------------------------------------------------------
+# LuaTeX
+# -----------------------------------------------------------------------------
+luatex                  # LuaTeX engine — TeX extended with embedded Lua scripting
+luahbtex                # LuaTeX variant with HarfBuzz font shaping
+luaotfload              # OpenType font loader for LuaTeX
+lualibs                 # Lua utility library for LuaTeX packages
+luatexbase              # Base infrastructure and callbacks for LuaTeX packages
+lua-uni-algos           # Unicode text algorithms implemented in Lua
+lua-alt-getopt          # Lua library for parsing command-line options
+
+
+# -----------------------------------------------------------------------------
+# XeTeX
+# -----------------------------------------------------------------------------
+xetex                   # XeTeX engine — Unicode TeX with native OpenType support
+xetexconfig             # XeTeX format and configuration files
+
+
+# -----------------------------------------------------------------------------
+# Miscellaneous
+# -----------------------------------------------------------------------------
+url                     # Typeset URLs with intelligent line-breaking
