@@ -25,8 +25,9 @@ WORKDIR /home/devuser
 # Install TinyTeX
 RUN wget -qO- "https://yihui.org/tinytex/install-bin-unix.sh" | sh
 
-# Install extra LaTeX packages (filter out macOS-only .universal-darwin entries)
-RUN grep -v -E '(\.universal-darwin|^#|^[[:space:]]*$)' /tmp/latex-packages.txt | \
+# Install extra LaTeX packages (strip comments, blank lines, macOS-only entries)
+RUN sed 's/#.*//' /tmp/latex-packages.txt | \
+    grep -v -E '(\.universal-darwin|^[[:space:]]*$)' | \
     xargs /home/devuser/.TinyTeX/bin/*/tlmgr install
 
 # Switch back to root to set up staging
