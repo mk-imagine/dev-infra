@@ -1,14 +1,14 @@
-name: Build r-stats-psy772
+name: Build r-stats-psy
 
 on:
   push:
     branches: [main]
     paths:
-      - "r-stats-psy772/**"
+      - "r-stats-psy/**"
   workflow_dispatch:
 
 env:
-  IMAGE: ghcr.io/mk-imagine/r-stats-psy772
+  IMAGE: ghcr.io/mk-imagine/r-stats-psy
 
 jobs:
   build:
@@ -40,7 +40,7 @@ jobs:
 
       - uses: docker/build-push-action@v6
         with:
-          context: r-stats-psy772
+          context: r-stats-psy
           platforms: linux/arm64,linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}

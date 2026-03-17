@@ -10,7 +10,7 @@ All images live under `ghcr.io/mk-imagine/`:
 |-------|-------------|--------|
 | `latex-sidecar` | TinyTeX init container — populates `latex-shared` volume | `latex-sidecar/` |
 | `r-stats-base` | R 4.5.2, pandoc 3.9, radian, core R packages | `r-stats-base/` |
-| `r-stats-psy772` | Base + psy772-specific R packages | `r-stats-psy772/` |
+| `r-stats-psy` | Base + psychology statistics R packages | `r-stats-psy/` |
 
 ### Image hierarchy
 
@@ -19,7 +19,7 @@ ghcr.io/mk-imagine/latex-sidecar:latest        ← standalone, populates latex-s
 
 ghcr.io/mk-imagine/r-stats-base:latest          ← R, pandoc, system deps, radian, core R packages
        ↓ FROM
-ghcr.io/mk-imagine/r-stats-psy772:latest        ← base + psy772-specific packages
+ghcr.io/mk-imagine/r-stats-psy:latest        ← base + psychology statistics packages
 ```
 
 ### Pulling images
@@ -27,7 +27,7 @@ ghcr.io/mk-imagine/r-stats-psy772:latest        ← base + psy772-specific packa
 All images are public. No authentication required:
 
 ```bash
-docker pull ghcr.io/mk-imagine/r-stats-psy772:latest
+docker pull ghcr.io/mk-imagine/r-stats-psy:latest
 ```
 
 ### Tags
@@ -40,7 +40,7 @@ GitHub Actions workflows in `.github/workflows/` build and push each image:
 
 - **build-latex-sidecar.yml** — triggers on changes to `latex-sidecar/`
 - **build-r-stats-base.yml** — triggers on changes to `r-stats-base/`; on completion, dispatches child image rebuilds
-- **build-r-stats-psy772.yml** — triggers on changes to `r-stats-psy772/` or when base image rebuilds
+- **build-r-stats-psy.yml** — triggers on changes to `r-stats-psy/` or when base rebuilds
 
 All workflows also support `workflow_dispatch` for manual rebuilds.
 
@@ -84,7 +84,7 @@ Projects using these images need the following in `devcontainer.json`:
 
 ```json
 {
-    "image": "ghcr.io/mk-imagine/r-stats-psy772:latest",
+    "image": "ghcr.io/mk-imagine/r-stats-psy:latest",
     "mounts": [
         "source=latex-shared,target=/opt/TinyTeX,type=volume"
     ],

@@ -1,16 +1,21 @@
-formatR
-caret
-ggplot2
-latex2exp
-readxl
-reshape2
-dplyr
-psych
-emmeans
-car
-effectsize
-rmarkdown
-knitr
-languageserver
-httpgd
-tidyverse
+# Data wrangling
+dplyr           # data manipulation verbs (filter, mutate, summarize, etc.)
+tidyverse       # meta-package: ggplot2, tidyr, readr, purrr, stringr, forcats, etc.
+readxl          # read Excel (.xls, .xlsx) files
+reshape2        # melt/cast data between wide and long formats
+
+# Visualization
+ggplot2         # grammar of graphics plotting
+latex2exp       # LaTeX expressions in ggplot labels
+
+# Reporting
+rmarkdown       # R Markdown document rendering
+knitr           # dynamic report generation and code chunk engine
+formatR         # tidy and reformat R source code
+
+# Machine learning
+caret           # classification and regression training framework
+
+# IDE support
+languageserver  # Language Server Protocol for R (used by VS Code R extension)
+httpgd           # graphics device for interactive plot viewing in VS Code

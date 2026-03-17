@@ -1,0 +1,12 @@
+# Core psychology statistics
+psych           # psychometrics: descriptive stats, factor analysis, reliability
+emmeans         # estimated marginal means and post-hoc contrasts
+car             # Companion to Applied Regression: Type II/III tests, Levene's test
+effectsize      # effect size measures (eta-squared, Cohen's d, etc.)
+
+# Specialized analyses
+heplots         # hypothesis-error plots and Box's M test for homogeneity
+ppcor           # partial and semi-partial (part) correlations
+lm.beta         # standardized regression coefficients (beta weights)
+agricolae       # Tukey, Duncan, and other multiple comparison procedures
+mvoutlier       # multivariate outlier detection

@@ -7,7 +7,9 @@ options(repos = c(CRAN = "https://cloud.r-project.org/"))
 pkg_file <- "/tmp/r-packages.txt"
 if (file.exists(pkg_file)) {
   pkgs <- readLines(pkg_file)
-  pkgs <- pkgs[pkgs != ""] # Remove empty lines
+  pkgs <- sub("#.*", "", pkgs)       # Strip comments
+  pkgs <- trimws(pkgs)               # Strip whitespace
+  pkgs <- pkgs[pkgs != ""]           # Remove empty lines
 } else {
   stop("CRITICAL ERROR: r-packages.txt not found in /tmp/")
 }

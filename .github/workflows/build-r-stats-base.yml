@@ -57,7 +57,7 @@ jobs:
     strategy:
       matrix:
         workflow:
-          - build-r-stats-psy772.yml
+          - build-r-stats-psy.yml
     steps:
       - uses: actions/github-script@v7
         with:
