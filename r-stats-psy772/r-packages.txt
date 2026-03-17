@@ -1,0 +1,5 @@
+heplots
+ppcor
+lm.beta
+agricolae
+mvoutlier

@@ -1,0 +1,16 @@
+formatR
+caret
+ggplot2
+latex2exp
+readxl
+reshape2
+dplyr
+psych
+emmeans
+car
+effectsize
+rmarkdown
+knitr
+languageserver
+httpgd
+tidyverse
