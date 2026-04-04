@@ -11,15 +11,27 @@ All images live under `ghcr.io/mk-imagine/`:
 | `latex-sidecar` | TinyTeX init container — populates `latex-shared` volume | `latex-sidecar/` |
 | `r-stats-base` | R 4.5.2, pandoc 3.9, radian, core R packages | `r-stats-base/` |
 | `r-stats-psy` | Base + psychology statistics R packages | `r-stats-psy/` |
+| `py-sci-base` | Python 3.13, numpy, pandas, system essentials | `py-sci-base/` |
+| `py-sci-jupyter` | Base + ipython, ipywidgets, ipykernel | `py-sci-jupyter/` |
+| `py-sci-jupyter-ml` | Jupyter + scikit-learn, scikit-optimize, optuna | `py-sci-jupyter-ml/` |
+| `py-sci-jupyter-torch` | ML + torch, torchvision, torchaudio | `py-sci-jupyter-torch/` |
 
 ### Image hierarchy
 
 ```
-ghcr.io/mk-imagine/latex-sidecar:latest        ← standalone, populates latex-shared volume
+ghcr.io/mk-imagine/latex-sidecar:latest              ← standalone, populates latex-shared volume
 
-ghcr.io/mk-imagine/r-stats-base:latest          ← R, pandoc, system deps, radian, core R packages
+ghcr.io/mk-imagine/r-stats-base:latest               ← R, pandoc, system deps, radian, core R packages
        ↓ FROM
-ghcr.io/mk-imagine/r-stats-psy:latest        ← base + psychology statistics packages
+ghcr.io/mk-imagine/r-stats-psy:latest                ← base + psychology statistics packages
+
+ghcr.io/mk-imagine/py-sci-base:latest                ← Python 3.13, numpy, pandas, system essentials
+       ↓ FROM
+ghcr.io/mk-imagine/py-sci-jupyter:latest             ← base + Jupyter notebook infrastructure
+       ↓ FROM
+ghcr.io/mk-imagine/py-sci-jupyter-ml:latest          ← jupyter + scikit-learn, scikit-optimize, optuna
+       ↓ FROM
+ghcr.io/mk-imagine/py-sci-jupyter-torch:latest       ← ml + torch, torchvision, torchaudio
 ```
 
 ### Pulling images
@@ -41,6 +53,10 @@ GitHub Actions workflows in `.github/workflows/` build and push each image:
 - **build-latex-sidecar.yml** — triggers on changes to `latex-sidecar/`
 - **build-r-stats-base.yml** — triggers on changes to `r-stats-base/`; on completion, dispatches child image rebuilds
 - **build-r-stats-psy.yml** — triggers on changes to `r-stats-psy/` or when base rebuilds
+- **build-py-sci-base.yml** — triggers on changes to `py-sci-base/`; cascades to jupyter
+- **build-py-sci-jupyter.yml** — triggers on changes to `py-sci-jupyter/` or when base rebuilds; cascades to jupyter-ml
+- **build-py-sci-jupyter-ml.yml** — triggers on changes to `py-sci-jupyter-ml/` or when jupyter rebuilds; cascades to jupyter-torch
+- **build-py-sci-jupyter-torch.yml** — triggers on changes to `py-sci-jupyter-torch/` or when jupyter-ml rebuilds
 
 All workflows also support `workflow_dispatch` for manual rebuilds.
 
@@ -101,7 +117,16 @@ The `current` symlink is architecture-agnostic — resolves to the correct binar
 
 ## Adding a new child image
 
+### R ecosystem
+
 1. Create `r-stats-<name>/` with `Dockerfile`, `r-packages.txt`, and `install.R`
 2. The Dockerfile should `FROM ghcr.io/mk-imagine/r-stats-base:latest`
 3. Add a workflow in `.github/workflows/build-r-stats-<name>.yml`
 4. Add the workflow filename to the `trigger-children` matrix in `build-r-stats-base.yml`
+
+### Python ecosystem
+
+1. Create `py-sci-<name>/` with `Dockerfile` and `requirements.txt`
+2. The Dockerfile should `FROM` the appropriate parent image (e.g., `ghcr.io/mk-imagine/py-sci-base:latest` or `py-sci-jupyter:latest`)
+3. Add a workflow in `.github/workflows/build-py-sci-<name>.yml`
+4. Add the workflow filename to the `trigger-children` matrix in the parent's workflow
