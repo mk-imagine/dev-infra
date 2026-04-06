@@ -211,6 +211,18 @@ The `current` symlink is architecture-agnostic — resolves to the correct binar
 
 **Do not** call `tinytex::install_tinytex()` or `apt install texlive` in consuming containers.
 
+### Global gitignore
+
+To share a global gitignore across all devcontainers (including remote/Codespaces environments), host the gitignore file at a stable URL (e.g., a GitHub Gist) and add a `postCreateCommand` that fetches it:
+
+```json
+{
+    "postCreateCommand": "mkdir -p ~/.config/git && curl -fsSL <GITIGNORE_RAW_URL> -o ~/.config/git/ignore && git config --global core.excludesfile ~/.config/git/ignore"
+}
+```
+
+This approach is portable — it works on any host without requiring a local `~/.config/git/ignore` file.
+
 ## Adding a new child image
 
 ### R ecosystem
