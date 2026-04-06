@@ -8,31 +8,127 @@ All images live under `ghcr.io/mk-imagine/`:
 
 | Image | Description | Source |
 |-------|-------------|--------|
-| `latex-sidecar` | TinyTeX init container — populates `latex-shared` volume | `latex-sidecar/` |
-| `r-stats-base` | R 4.5.2, pandoc 3.9, radian, core R packages | `r-stats-base/` |
-| `r-stats-psy` | Base + psychology statistics R packages | `r-stats-psy/` |
-| `py-sci-base` | Python 3.13, numpy, pandas, system essentials | `py-sci-base/` |
-| `py-sci-jupyter` | Base + ipython, ipywidgets, ipykernel | `py-sci-jupyter/` |
-| `py-sci-jupyter-ml` | Jupyter + scikit-learn, scikit-optimize, optuna | `py-sci-jupyter-ml/` |
-| `py-sci-jupyter-torch` | ML + torch, torchvision, torchaudio | `py-sci-jupyter-torch/` |
+| [`latex-sidecar`](#latex-sidecar) | TinyTeX init container — populates `latex-shared` volume | `latex-sidecar/` |
+| [`r-stats-base`](#r-stats-base) | R 4.5.2, pandoc 3.9, radian, core R packages | `r-stats-base/` |
+| [`r-stats-psy`](#r-stats-psy) | Base + psychology statistics R packages | `r-stats-psy/` |
+| [`py-sci-base`](#py-sci-base) | Python 3.13, numpy, pandas, system essentials | `py-sci-base/` |
+| [`py-sci-jupyter`](#py-sci-jupyter) | Base + ipython, ipywidgets, ipykernel | `py-sci-jupyter/` |
+| [`py-sci-jupyter-ml`](#py-sci-jupyter-ml) | Jupyter + scikit-learn, scikit-optimize, optuna | `py-sci-jupyter-ml/` |
+| [`py-sci-jupyter-torch`](#py-sci-jupyter-torch) | ML + torch, torchvision, torchaudio | `py-sci-jupyter-torch/` |
 
-### Image hierarchy
+### Image dependencies
 
-```
-ghcr.io/mk-imagine/latex-sidecar:latest              ← standalone, populates latex-shared volume
+Each image's full dependency list, including packages inherited from parent images. Inherited dependencies are marked with the source image.
 
-ghcr.io/mk-imagine/r-stats-base:latest               ← R, pandoc, system deps, radian, core R packages
-       ↓ FROM
-ghcr.io/mk-imagine/r-stats-psy:latest                ← base + psychology statistics packages
+#### `latex-sidecar`
 
-ghcr.io/mk-imagine/py-sci-base:latest                ← Python 3.13, numpy, pandas, system essentials
-       ↓ FROM
-ghcr.io/mk-imagine/py-sci-jupyter:latest             ← base + Jupyter notebook infrastructure
-       ↓ FROM
-ghcr.io/mk-imagine/py-sci-jupyter-ml:latest          ← jupyter + scikit-learn, scikit-optimize, optuna
-       ↓ FROM
-ghcr.io/mk-imagine/py-sci-jupyter-torch:latest       ← ml + torch, torchvision, torchaudio
-```
+> Standalone init container (Debian 12 slim). Populates the `latex-shared` volume with TinyTeX.
+
+**System packages:** wget, perl, ca-certificates, xz-utils
+
+**LaTeX packages (via tlmgr):**
+
+| Category | Packages |
+|----------|----------|
+| TeX/LaTeX Core | tex, latex, latex-bin, plain, etex, kpathsea, tex-ini-files, latexconfig, texlive.infra, texlive-scripts, texlive-scripts-extra, metafont, mfware, knuth-lib, latexmk, tools |
+| LaTeX3 | l3kernel, l3backend, l3packages |
+| PDF/Output Drivers | pdftex, dvipdfmx, dvips, epstopdf, epstopdf-pkg, extractbb |
+| Fonts | cm, ec, lm, lm-math, amsfonts, psnfss, doublestroke, inconsolata, helvetic, times, symbol, zapfding, fontspec, latex-fonts, glyphlist, modes |
+| Math | amsmath, amscls, cancel, unicode-math, lualatex-math |
+| Graphics | graphics, graphics-cfg, graphics-def, xcolor |
+| Typesetting/Layout | geometry, booktabs, float, listings, fancyvrb, framed, setspace, mdwtools |
+| Bibliography | bibtex, natbib |
+| PDF/Hyperlinks | hyperref, bookmark, hycolor, pdfescape, gettitlestring, rerunfilecheck |
+| Programming Utilities | etoolbox, etexcmds, ltxcmds, letltxmacro, iftex, infwarerr, filehook, kvoptions, kvsetkeys, kvdefinekeys, xkeyval, intcalc, bigintcalc, refcount, uniquecounter, stringenc, atbegshi, atveryend, auxhook, firstaid, ctablestack, bitset, pdftexcmds |
+| Unicode/Language | babel, hyph-utf8, hyphen-base, dehyph, unicode-data, euenc, xunicode, tipa, selnolig |
+| LuaTeX | luatex, luahbtex, luaotfload, lualibs, luatexbase, lua-uni-algos, lua-alt-getopt |
+| XeTeX | xetex, xetexconfig |
+| Misc | url |
+
+---
+
+#### `r-stats-base`
+
+> Base image: `rocker/r-ver:4.5.2` (R 4.5.2). Includes Pandoc 3.9, radian console, and core R packages.
+
+**System packages (apt):** git, tmux, wget, perl, curl, jq, htop, tree, python3-pip, libxml2-dev, libssl-dev, libcurl4-openssl-dev, zlib1g-dev, libfontconfig1-dev, libharfbuzz-dev, libfribidi-dev, libfreetype6-dev, libpng-dev, libtiff5-dev, libjpeg-dev, libxt6t64, cmake
+
+**Tools:** Pandoc 3.9, radian (Python-based R console), APA CSL style
+
+**R packages:**
+
+| Category | Packages |
+|----------|----------|
+| Data wrangling | dplyr, tidyverse, readxl, reshape2 |
+| Visualization | ggplot2, latex2exp |
+| Reporting | rmarkdown, knitr, formatR |
+| Machine learning | caret |
+| IDE support | languageserver, httpgd |
+
+---
+
+#### `r-stats-psy`
+
+> Parent: `r-stats-base`. Adds psychology and statistics R packages.
+>
+> **Volume dependency:** Consuming devcontainers should mount the `latex-shared` volume (from `latex-sidecar`) for LaTeX/PDF rendering.
+
+**Inherited from `r-stats-base`:** all system packages, tools (Pandoc, radian), and R packages listed above.
+
+**Additional R packages:**
+
+| Category | Packages |
+|----------|----------|
+| Core psychology statistics | psych, emmeans, car, effectsize |
+| Specialized analyses | heplots, ppcor, lm.beta, agricolae, mvoutlier, interactions |
+
+---
+
+#### `py-sci-base`
+
+> Base image: `python:3.13-slim`. Core scientific Python stack.
+
+**System packages (apt):** git, curl, build-essential
+
+**Python packages:** numpy, pandas
+
+---
+
+#### `py-sci-jupyter`
+
+> Parent: `py-sci-base`. Adds Jupyter notebook infrastructure.
+
+**Inherited from `py-sci-base`:** all system packages and Python packages (numpy, pandas).
+
+**Additional Python packages:** ipython, ipywidgets, ipykernel
+
+---
+
+#### `py-sci-jupyter-ml`
+
+> Parent: `py-sci-jupyter`. Adds machine learning libraries.
+
+**Inherited from `py-sci-base`:** git, curl, build-essential, numpy, pandas
+
+**Inherited from `py-sci-jupyter`:** ipython, ipywidgets, ipykernel
+
+**Additional Python packages:** scikit-learn, scikit-optimize, optuna
+
+---
+
+#### `py-sci-jupyter-torch`
+
+> Parent: `py-sci-jupyter-ml`. Adds PyTorch stack (CPU wheels).
+
+**Inherited from `py-sci-base`:** git, curl, build-essential, numpy, pandas
+
+**Inherited from `py-sci-jupyter`:** ipython, ipywidgets, ipykernel
+
+**Inherited from `py-sci-jupyter-ml`:** scikit-learn, scikit-optimize, optuna
+
+**Additional Python packages:** torch, torchvision, torchaudio
+
+---
 
 ### Pulling images
 
