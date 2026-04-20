@@ -1,0 +1,5 @@
+default-jre-headless
+graphviz
+fonts-dejavu
+ca-certificates
+curl

@@ -15,6 +15,7 @@ All images live under `ghcr.io/mk-imagine/`:
 | [`py-sci-jupyter`](#py-sci-jupyter) | Base + ipython, ipywidgets, ipykernel | `py-sci-jupyter/` |
 | [`py-sci-jupyter-ml`](#py-sci-jupyter-ml) | Jupyter + scikit-learn, scikit-optimize, optuna | `py-sci-jupyter-ml/` |
 | [`py-sci-jupyter-torch`](#py-sci-jupyter-torch) | ML + torch, torchvision, torchaudio | `py-sci-jupyter-torch/` |
+| [`plantuml`](#plantuml) | PlantUML CLI — JRE + Graphviz + pinned `plantuml.jar` | `plantuml/` |
 
 ### Image dependencies
 
@@ -130,6 +131,35 @@ Each image's full dependency list, including packages inherited from parent imag
 
 ---
 
+#### `plantuml`
+
+> Standalone CLI image (Debian 12 slim) for rendering PlantUML diagrams. No parent.
+
+**System packages (apt):** default-jre-headless, graphviz, fonts-dejavu, ca-certificates, curl
+
+**Tools:** `plantuml` wrapper on `PATH` invoking the pinned `plantuml.jar` under `/opt/plantuml/`. Version pinned via `ARG PLANTUML_VERSION` in the Dockerfile — bump to pull a newer release from [plantuml/plantuml releases](https://github.com/plantuml/plantuml/releases).
+
+**Usage:**
+
+```bash
+# Render a .puml file from the current directory
+docker run --rm -v "$PWD":/work ghcr.io/mk-imagine/plantuml:latest plantuml diagram.puml
+
+# Interactive shell
+docker run --rm -it -v "$PWD":/work ghcr.io/mk-imagine/plantuml:latest bash
+```
+
+**Local build (while GH Actions is still publishing):**
+
+```bash
+docker build -t plantuml:local plantuml/
+docker run --rm -v "$PWD":/work plantuml:local plantuml diagram.puml
+```
+
+Swap `plantuml:local` for `ghcr.io/mk-imagine/plantuml:latest` once the workflow finishes.
+
+---
+
 ### Pulling images
 
 All images are public. No authentication required:
@@ -153,6 +183,7 @@ GitHub Actions workflows in `.github/workflows/` build and push each image:
 - **build-py-sci-jupyter.yml** — triggers on changes to `py-sci-jupyter/` or when base rebuilds; cascades to jupyter-ml
 - **build-py-sci-jupyter-ml.yml** — triggers on changes to `py-sci-jupyter-ml/` or when jupyter rebuilds; cascades to jupyter-torch
 - **build-py-sci-jupyter-torch.yml** — triggers on changes to `py-sci-jupyter-torch/` or when jupyter-ml rebuilds
+- **build-plantuml.yml** — triggers on changes to `plantuml/` (standalone, no cascade)
 
 All workflows also support `workflow_dispatch` for manual rebuilds.
 
