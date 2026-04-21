@@ -180,6 +180,14 @@ xetexconfig             # XeTeX format and configuration files
 
 
 # -----------------------------------------------------------------------------
+# Presentations
+# -----------------------------------------------------------------------------
+beamer                  # LaTeX class for presentation slides
+pgf                     # Graphics framework (provides TikZ) — required by beamer
+translator              # Text-translation package — required by beamer
+
+
+# -----------------------------------------------------------------------------
 # Miscellaneous
 # -----------------------------------------------------------------------------
 url                     # Typeset URLs with intelligent line-breaking
