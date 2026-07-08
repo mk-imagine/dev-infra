@@ -98,6 +98,8 @@ fancyvrb                # Enhanced verbatim environments
 framed                  # Framed, shaded, and boxed text regions
 setspace                # Line spacing control (\doublespacing, etc.)
 mdwtools                # Mark Wooding's tools: mdwlist, mdwtab, etc.
+enumitem                # Customizable list environments (spacing, labels, resume)
+textpos                 # Absolute positioning of text blocks on the page
 
 
 # -----------------------------------------------------------------------------
@@ -191,3 +193,4 @@ translator              # Text-translation package — required by beamer
 # Miscellaneous
 # -----------------------------------------------------------------------------
 url                     # Typeset URLs with intelligent line-breaking
+lipsum                  # Dummy "Lorem ipsum" filler text for drafts/templates
