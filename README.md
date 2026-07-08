@@ -9,6 +9,7 @@ All images live under `ghcr.io/mk-imagine/`:
 | Image | Description | Source |
 |-------|-------------|--------|
 | [`latex-sidecar`](#latex-sidecar) | TinyTeX init container — populates `latex-shared` volume | `latex-sidecar/` |
+| [`latex-base`](#latex-base) | Minimal Debian runtime for building LaTeX from `latex-shared` | `latex-base/` |
 | [`r-stats-base`](#r-stats-base) | R 4.5.2, pandoc 3.9, radian, core R packages | `r-stats-base/` |
 | [`r-stats-psy`](#r-stats-psy) | Base + psychology statistics R packages | `r-stats-psy/` |
 | [`py-sci-base`](#py-sci-base) | Python 3.13, numpy, pandas, system essentials | `py-sci-base/` |
@@ -37,14 +38,35 @@ Each image's full dependency list, including packages inherited from parent imag
 | Fonts | cm, ec, lm, lm-math, amsfonts, psnfss, doublestroke, inconsolata, helvetic, times, symbol, zapfding, fontspec, latex-fonts, glyphlist, modes |
 | Math | amsmath, amscls, cancel, unicode-math, lualatex-math |
 | Graphics | graphics, graphics-cfg, graphics-def, xcolor |
-| Typesetting/Layout | geometry, booktabs, float, listings, fancyvrb, framed, setspace, mdwtools |
+| Typesetting/Layout | geometry, booktabs, float, listings, fancyvrb, framed, setspace, mdwtools, enumitem, textpos |
 | Bibliography | bibtex, natbib |
 | PDF/Hyperlinks | hyperref, bookmark, hycolor, pdfescape, gettitlestring, rerunfilecheck |
 | Programming Utilities | etoolbox, etexcmds, ltxcmds, letltxmacro, iftex, infwarerr, filehook, kvoptions, kvsetkeys, kvdefinekeys, xkeyval, intcalc, bigintcalc, refcount, uniquecounter, stringenc, atbegshi, atveryend, auxhook, firstaid, ctablestack, bitset, pdftexcmds |
 | Unicode/Language | babel, hyph-utf8, hyphen-base, dehyph, unicode-data, euenc, xunicode, tipa, selnolig |
 | LuaTeX | luatex, luahbtex, luaotfload, lualibs, luatexbase, lua-uni-algos, lua-alt-getopt |
 | XeTeX | xetex, xetexconfig |
-| Misc | url |
+| Presentations | beamer, pgf, translator |
+| Misc | url, lipsum |
+
+---
+
+#### `latex-base`
+
+> Standalone runtime image (Debian 12 slim). Minimal companion to `latex-sidecar`: the sidecar **populates** the `latex-shared` volume; `latex-base` is the smallest base that **builds** LaTeX from it. Mount `latex-shared` at `/opt/TinyTeX` — `PATH` already points at `/opt/TinyTeX/bin/current`. Includes a `devuser` (UID 1000) matching the volume's ownership.
+
+**System packages (apt):** perl, libfontconfig1, fontconfig, gnupg, wget, ca-certificates, git, python3
+
+| Package | Why it's needed |
+|---------|-----------------|
+| perl | `latexmk` is a Perl script |
+| libfontconfig1 | XeLaTeX/LuaLaTeX fail to start without it (fontspec / OpenType) |
+| fontconfig | `fc-cache` for fonts installed into the volume |
+| gnupg | `tlmgr` verified downloads |
+| wget, ca-certificates | `tlmgr` package downloads over HTTPS |
+| git | devcontainer / source hygiene |
+| python3 | utility scripts (e.g. aux-file cleanup) |
+
+> **No baked TeX.** TinyTeX lives entirely in the `latex-shared` volume — do not `apt install texlive` here. Projects needing packages beyond the sidecar's list install them on demand with `tlmgr install <pkg>` (into the mounted volume).
 
 ---
 
@@ -177,6 +199,7 @@ Each image is tagged with `latest` and the short commit SHA for rollback.
 GitHub Actions workflows in `.github/workflows/` build and push each image:
 
 - **build-latex-sidecar.yml** — triggers on changes to `latex-sidecar/`
+- **build-latex-base.yml** — triggers on changes to `latex-base/` (standalone, no cascade)
 - **build-r-stats-base.yml** — triggers on changes to `r-stats-base/`; on completion, dispatches child image rebuilds
 - **build-r-stats-psy.yml** — triggers on changes to `r-stats-psy/` or when base rebuilds
 - **build-py-sci-base.yml** — triggers on changes to `py-sci-base/`; cascades to jupyter
