@@ -16,6 +16,8 @@ All images live under `ghcr.io/mk-imagine/`:
 | [`py-sci-jupyter`](#py-sci-jupyter) | Base + ipython, ipywidgets, ipykernel | `py-sci-jupyter/` |
 | [`py-sci-jupyter-ml`](#py-sci-jupyter-ml) | Jupyter + scikit-learn, scikit-optimize, optuna | `py-sci-jupyter-ml/` |
 | [`py-sci-jupyter-torch`](#py-sci-jupyter-torch) | ML + torch, torchvision, torchaudio | `py-sci-jupyter-torch/` |
+| [`py-sci-jupyter-torch-latex`](#py-sci-jupyter-torch-latex) | Torch + LaTeX devcontainer metadata (no packages) | `py-sci-jupyter-torch-latex/` |
+| [`py-dsml`](#py-dsml) | Torch-LaTeX + nbclient/nbformat, matplotlib/seaborn, dill, pytest | `py-dsml/` |
 | [`plantuml`](#plantuml) | PlantUML CLI — JRE + Graphviz + pinned `plantuml.jar` | `plantuml/` |
 
 ### Image dependencies
@@ -150,6 +152,38 @@ Each image's full dependency list, including packages inherited from parent imag
 **Inherited from `py-sci-jupyter-ml`:** scikit-learn, scikit-optimize, optuna
 
 **Additional Python packages:** torch, torchvision, torchaudio
+
+---
+
+#### `py-sci-jupyter-torch-latex`
+
+> Parent: `py-sci-jupyter-torch`. Adds no packages — bakes LaTeX devcontainer configuration into a `devcontainer.metadata` LABEL, inherited by any consuming `devcontainer.json`. Pairs with the `latex-sidecar` volume.
+
+**Inherited:** the full `py-sci-*` chain (see `py-sci-jupyter-torch`)
+
+**Additional Python packages:** none
+
+**Image metadata:** `latex-shared` volume at `/opt/TinyTeX`; `/opt/TinyTeX/bin/current` prepended to `PATH`; LaTeX Workshop extensions and settings
+
+---
+
+#### `py-dsml`
+
+> Parent: `py-sci-jupyter-torch-latex`. Completes the notebook-authoring and headless-execution stack — generate, execute, and verify notebooks without installing anything at container start.
+
+**Inherited from `py-sci-base`:** git, curl, build-essential, poppler-utils, numpy, pandas, openpyxl
+
+**Inherited from `py-sci-jupyter`:** ipython, ipywidgets, ipykernel
+
+**Inherited from `py-sci-jupyter-ml`:** scikit-learn, scikit-optimize, optuna
+
+**Inherited from `py-sci-jupyter-torch`:** torch, torchvision, torchaudio
+
+**Inherited from `py-sci-jupyter-torch-latex`:** the LaTeX `devcontainer.metadata` LABEL
+
+**Additional Python packages:** nbclient, nbformat, matplotlib, seaborn, dill, pytest
+
+**Not included by design:** project-local editable packages, and course/project-specific Jupyter kernelspecs — this image ships the stock `python3` kernel only. See `py-dsml/README.md`.
 
 ---
 
