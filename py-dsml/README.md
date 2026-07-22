@@ -50,10 +50,33 @@ CI builds and pushes on any change under `py-dsml/`, and on
     "name": "my-curriculum-repo",
     "image": "ghcr.io/mk-imagine/py-dsml:latest",
     "initializeCommand": "docker pull ghcr.io/mk-imagine/latex-sidecar:latest && docker run --rm -v latex-shared:/opt/TinyTeX ghcr.io/mk-imagine/latex-sidecar:latest",
-    "postCreateCommand": "mkdir -p ~/.config/git && curl -fsSL https://gist.githubusercontent.com/mk-imagine/cf71d040d468af090a7fe65568470a09/raw/ignore -o ~/.config/git/ignore && git config --global core.excludesfile ~/.config/git/ignore",
+    "postCreateCommand": "mkdir -p ~/.config/git && { curl -fsSL https://gist.githubusercontent.com/mk-imagine/cf71d040d468af090a7fe65568470a09/raw/ignore -o ~/.config/git/ignore || echo 'warn: global gitignore fetch failed; continuing without it'; } && git config --global core.excludesfile ~/.config/git/ignore",
     "remoteUser": "devuser"
 }
 ```
 
 The `mounts`, `remoteEnv`, and `customizations` keys are inherited from the
 LaTeX parent — drop the `initializeCommand` if the repo has no LaTeX output.
+
+### A note on the global-gitignore fetch
+
+The `curl` above is wrapped so a fetch failure **warns instead of aborting
+container creation**. In the original `&&`-chained form, an unreachable gist
+took the whole `postCreateCommand` down with it and the container came up
+misconfigured; git tolerates an `excludesfile` that does not exist, so
+continuing is strictly better than failing.
+
+The URL is a **mutable** gist ref (`/raw/ignore` always serves the latest
+revision). That is deliberate — it is how the ignore rules propagate to every
+consuming repo without touching each one — but it does mean the fetched
+content can change without review. A repo that needs reproducibility over
+propagation can pin the immutable revision instead:
+
+```
+https://gist.githubusercontent.com/mk-imagine/cf71d040d468af090a7fe65568470a09/raw/3841eeada1c2164f6ae33d54f1d6f8c7dd298dff/ignore
+```
+
+Pinning is a per-repo call, not a default: it trades away the central-update
+property the shared gist exists to provide. The unpinned form remains the
+repo-wide convention (see the "New devcontainer checklist"), so changing the
+default belongs in that checklist rather than in one image's README.
