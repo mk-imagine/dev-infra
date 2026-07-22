@@ -1,14 +1,14 @@
-name: Build py-sci-jupyter-torch-latex
+name: Build py-dsml
 
 on:
   push:
     branches: [main]
     paths:
-      - "py-sci-jupyter-torch-latex/**"
+      - "py-dsml/**"
   workflow_dispatch:
 
 env:
-  IMAGE: ghcr.io/mk-imagine/py-sci-jupyter-torch-latex
+  IMAGE: ghcr.io/mk-imagine/py-dsml
 
 jobs:
   build:
@@ -40,31 +40,10 @@ jobs:
 
       - uses: docker/build-push-action@v7
         with:
-          context: py-sci-jupyter-torch-latex
+          context: py-dsml
           platforms: linux/arm64,linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  trigger-children:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      actions: write
-      contents: read
-    strategy:
-      matrix:
-        workflow:
-          - build-py-dsml.yml
-    steps:
-      - uses: actions/github-script@v8
-        with:
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: '${{ matrix.workflow }}',
-              ref: 'main'
-            });

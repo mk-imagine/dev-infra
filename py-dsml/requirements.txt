@@ -1,0 +1,13 @@
+# Programmatic notebook execution (headless build/verify pipelines)
+nbclient
+nbformat
+
+# Plotting
+matplotlib
+seaborn
+
+# Serialization beyond pickle (lambdas, closures, model bundles)
+dill
+
+# Verification cells and build-script tests
+pytest
