@@ -1,0 +1,3 @@
+# Animation engine. Pulls its own stack: numpy/scipy, pycairo, manimpango,
+# moderngl, networkx, pillow, rich, svgelements, skia-pathops, av.
+manim
