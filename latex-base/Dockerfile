@@ -6,6 +6,19 @@
 # points at /opt/TinyTeX/bin/current below).
 #
 # Do NOT install a system texlive here — TinyTeX lives entirely in the volume.
+#
+# tlmgr is NOT part of this image. It ships inside TinyTeX, so it lives in the
+# latex-shared volume and its version is whatever latex-sidecar baked in when
+# the volume was first populated. Nothing here can update it.
+#
+# That matters because the tlnet repo keeps moving while a populated volume does
+# not. Once it drifts far enough, every on-demand install fails closed with:
+#     "tlmgr itself needs to be updated ... tlmgr: Terminating"
+# latex-sidecar now runs `tlmgr update --self --all` at build time, so freshly
+# populated volumes are current. A long-lived volume will still drift. Recover
+# in place — no rebuild needed — with:
+#     tlmgr update --self
+# Or delete the volume and re-run latex-sidecar to repopulate from a newer image.
 FROM debian:12-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
