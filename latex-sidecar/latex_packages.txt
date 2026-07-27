@@ -190,6 +190,20 @@ translator              # Text-translation package — required by beamer
 
 
 # -----------------------------------------------------------------------------
+# Manim (py-manim)
+# -----------------------------------------------------------------------------
+# Manim's Tex/MathTex pipeline is: latex -> .dvi -> dvisvgm -> SVG. Its default
+# template is \documentclass[preview]{standalone} + babel[english] + amsmath +
+# amssymb; the latter two are already covered by amsmath/amsfonts above.
+standalone              # Document class manim's tex template compiles against
+preview                 # Crops output to the typeset content (standalone dep)
+dvisvgm                 # DVI-to-SVG converter — manim's Tex path fails without it
+babel-english           # English language definitions; `babel` alone does not
+                        # provide them and \usepackage[english]{babel} errors
+                        # with "Unknown option 'english'"
+
+
+# -----------------------------------------------------------------------------
 # Miscellaneous
 # -----------------------------------------------------------------------------
 url                     # Typeset URLs with intelligent line-breaking

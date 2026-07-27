@@ -14,6 +14,7 @@ All images live under `ghcr.io/mk-imagine/`:
 | [`r-stats-psy`](#r-stats-psy) | Base + psychology statistics R packages | `r-stats-psy/` |
 | [`py-sci-base`](#py-sci-base) | Python 3.13, numpy, pandas, system essentials | `py-sci-base/` |
 | [`py-sci-jupyter`](#py-sci-jupyter) | Base + ipython, ipywidgets, ipykernel | `py-sci-jupyter/` |
+| [`py-manim`](#py-manim) | Jupyter + manim, cairo/pango/ffmpeg; LaTeX via `latex-shared` | `py-manim/` |
 | [`py-sci-jupyter-ml`](#py-sci-jupyter-ml) | Jupyter + scikit-learn, scikit-optimize, optuna | `py-sci-jupyter-ml/` |
 | [`py-sci-jupyter-torch`](#py-sci-jupyter-torch) | ML + torch, torchvision, torchaudio | `py-sci-jupyter-torch/` |
 | [`py-sci-jupyter-torch-latex`](#py-sci-jupyter-torch-latex) | Torch + LaTeX devcontainer metadata (no packages) | `py-sci-jupyter-torch-latex/` |
@@ -28,7 +29,7 @@ Each image's full dependency list, including packages inherited from parent imag
 
 > Standalone init container (Debian 12 slim). Populates the `latex-shared` volume with TinyTeX.
 
-**System packages:** wget, perl, ca-certificates, xz-utils
+**System packages:** wget, perl, ca-certificates, xz-utils, gnupg, libfontconfig1, fontconfig
 
 **LaTeX packages (via tlmgr):**
 
@@ -44,10 +45,11 @@ Each image's full dependency list, including packages inherited from parent imag
 | Bibliography | bibtex, natbib |
 | PDF/Hyperlinks | hyperref, bookmark, hycolor, pdfescape, gettitlestring, rerunfilecheck |
 | Programming Utilities | etoolbox, etexcmds, ltxcmds, letltxmacro, iftex, infwarerr, filehook, kvoptions, kvsetkeys, kvdefinekeys, xkeyval, intcalc, bigintcalc, refcount, uniquecounter, stringenc, atbegshi, atveryend, auxhook, firstaid, ctablestack, bitset, pdftexcmds |
-| Unicode/Language | babel, hyph-utf8, hyphen-base, dehyph, unicode-data, euenc, xunicode, tipa, selnolig |
+| Unicode/Language | babel, babel-english, hyph-utf8, hyphen-base, dehyph, unicode-data, euenc, xunicode, tipa, selnolig |
 | LuaTeX | luatex, luahbtex, luaotfload, lualibs, luatexbase, lua-uni-algos, lua-alt-getopt |
 | XeTeX | xetex, xetexconfig |
 | Presentations | beamer, pgf, translator |
+| Manim (`py-manim`) | standalone, preview, dvisvgm |
 | Misc | url, lipsum |
 
 ---
@@ -67,6 +69,15 @@ Each image's full dependency list, including packages inherited from parent imag
 | wget, ca-certificates | `tlmgr` package downloads over HTTPS |
 | git | devcontainer / source hygiene |
 | python3 | utility scripts (e.g. aux-file cleanup) |
+
+> **`tlmgr` lives in the volume, not in this image.** It ships inside TinyTeX, so
+> its version is whatever `latex-sidecar` baked in when the volume was first
+> populated — nothing in `latex-base` can update it. Because the tlnet repo keeps
+> moving while a populated volume does not, a volume that drifts far enough will
+> fail every on-demand install with `tlmgr itself needs to be updated ...
+> Terminating`. The sidecar runs `tlmgr update --self --all` at build time, so
+> freshly populated volumes are current. Recover a drifted volume in place with
+> `tlmgr update --self`, or delete it and re-run the sidecar to repopulate.
 
 > **No baked TeX.** TinyTeX lives entirely in the `latex-shared` volume — do not `apt install texlive` here. Projects needing packages beyond the sidecar's list install them on demand with `tlmgr install <pkg>` (into the mounted volume).
 
@@ -126,6 +137,24 @@ Each image's full dependency list, including packages inherited from parent imag
 **Inherited from `py-sci-base`:** all system packages and Python packages (numpy, pandas).
 
 **Additional Python packages:** ipython, ipywidgets, ipykernel
+
+---
+
+#### `py-manim`
+
+> Parent: `py-sci-jupyter`. Manim animation rendering. Sits directly on the Jupyter layer rather than deeper in the chain so the `%%manim` cell magic can render a scene and embed the video inline, without pulling in the multi-GB torch stack it would never import.
+
+**Inherited from `py-sci-base`:** git, curl, build-essential, poppler-utils, numpy, pandas, openpyxl
+
+**Inherited from `py-sci-jupyter`:** ipython, ipywidgets, ipykernel
+
+**Additional system packages:** ffmpeg, libcairo2-dev, libpango1.0-dev, pkg-config
+
+**Additional Python packages:** manim (pulls scipy, pycairo, manimpango, moderngl, networkx, pillow, rich, svgelements, skia-pathops, av)
+
+**Image metadata:** `latex-shared` volume at `/opt/TinyTeX`; `/opt/TinyTeX/bin/current` prepended to `PATH`; Python and Jupyter extensions. The LaTeX Workshop extensions carried by `py-sci-jupyter-torch-latex` are omitted — manim invokes `latex` internally, so it needs the binaries but not a `.tex` editing IDE.
+
+**Requires the `latex-shared` volume** for `Tex`/`MathTex`. The pipeline is `latex` → `.dvi` → `dvisvgm` → SVG, which depends on `standalone`, `dvisvgm` and `babel-english` in `latex-sidecar`. Scenes using only geometry render without the volume mounted.
 
 ---
 

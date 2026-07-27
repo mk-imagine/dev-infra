@@ -1,0 +1,5 @@
+# CLAUDE.md is ignored by the global gitignore (core.excludesFile). In this repo
+# it documents the image hierarchy, cascade wiring and package-list conventions,
+# so it belongs in version control. A repo .gitignore takes precedence over the
+# global one, so this negation re-includes it.
+!CLAUDE.md
