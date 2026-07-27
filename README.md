@@ -45,10 +45,11 @@ Each image's full dependency list, including packages inherited from parent imag
 | Bibliography | bibtex, natbib |
 | PDF/Hyperlinks | hyperref, bookmark, hycolor, pdfescape, gettitlestring, rerunfilecheck |
 | Programming Utilities | etoolbox, etexcmds, ltxcmds, letltxmacro, iftex, infwarerr, filehook, kvoptions, kvsetkeys, kvdefinekeys, xkeyval, intcalc, bigintcalc, refcount, uniquecounter, stringenc, atbegshi, atveryend, auxhook, firstaid, ctablestack, bitset, pdftexcmds |
-| Unicode/Language | babel, hyph-utf8, hyphen-base, dehyph, unicode-data, euenc, xunicode, tipa, selnolig |
+| Unicode/Language | babel, babel-english, hyph-utf8, hyphen-base, dehyph, unicode-data, euenc, xunicode, tipa, selnolig |
 | LuaTeX | luatex, luahbtex, luaotfload, lualibs, luatexbase, lua-uni-algos, lua-alt-getopt |
 | XeTeX | xetex, xetexconfig |
 | Presentations | beamer, pgf, translator |
+| Manim (`py-manim`) | standalone, preview, dvisvgm |
 | Misc | url, lipsum |
 
 ---
@@ -68,6 +69,15 @@ Each image's full dependency list, including packages inherited from parent imag
 | wget, ca-certificates | `tlmgr` package downloads over HTTPS |
 | git | devcontainer / source hygiene |
 | python3 | utility scripts (e.g. aux-file cleanup) |
+
+> **`tlmgr` lives in the volume, not in this image.** It ships inside TinyTeX, so
+> its version is whatever `latex-sidecar` baked in when the volume was first
+> populated — nothing in `latex-base` can update it. Because the tlnet repo keeps
+> moving while a populated volume does not, a volume that drifts far enough will
+> fail every on-demand install with `tlmgr itself needs to be updated ...
+> Terminating`. The sidecar runs `tlmgr update --self --all` at build time, so
+> freshly populated volumes are current. Recover a drifted volume in place with
+> `tlmgr update --self`, or delete it and re-run the sidecar to repopulate.
 
 > **No baked TeX.** TinyTeX lives entirely in the `latex-shared` volume — do not `apt install texlive` here. Projects needing packages beyond the sidecar's list install them on demand with `tlmgr install <pkg>` (into the mounted volume).
 
