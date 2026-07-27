@@ -20,9 +20,15 @@ USER root
 # pkg-config      — pycairo's build uses it to locate cairo
 #
 # The -dev packages are build-time requirements that stay in the image. Dropping
-# them after pip install (keeping only libcairo2 / libpango-1.0-0) would trim a
-# few hundred MB, but is deliberately not done here to keep this Dockerfile
-# consistent with the rest of the chain.
+# them is possible but deliberately not done. Measured on arm64, it saves 180MB
+# (1.70GB -> 1.52GB) and costs more than it returns:
+#   - The purge must share a RUN with the pip install. A later layer cannot
+#     shrink an earlier one, so a separate cleanup layer reclaims nothing.
+#   - That means hand-maintaining a runtime list (libcairo2, libpango-1.0-0,
+#     libpangocairo-1.0-0) apart from the build list. A mistake there surfaces
+#     at runtime in a published image, not as a failed build.
+#   - It also abandons the flat apt-packages.txt convention used chain-wide.
+# build-essential is not reclaimable at all — it lives in py-sci-base's layer.
 COPY apt-packages.txt /tmp/
 RUN apt-get update && apt-get install -y --no-install-recommends \
     $(cat /tmp/apt-packages.txt) \
