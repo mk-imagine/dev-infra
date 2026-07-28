@@ -18,3 +18,9 @@ pytest
 # package's dependency tree.
 pillow
 cairosvg
+
+# Perceptual image hashing. Backs the image-dedup leakage screen: near-duplicate
+# images split across train and test inflate scores without any model learning
+# anything, and exact-hash comparison misses them because a resize or
+# requantization changes every byte.
+imagehash
