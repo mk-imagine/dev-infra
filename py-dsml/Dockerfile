@@ -38,4 +38,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt /tmp/
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
+# The default user is non-root, so a `pip install` run inside a live container
+# (a consuming repo installing its own package editable, say) cannot write to
+# system site-packages and silently falls back to the user scheme. Imports still
+# work, but console scripts land in ~/.local/bin, which is not otherwise on PATH
+# -- so an installed CLI comes back "command not found" while `import` succeeds.
+# pip warns about this and the warning scrolls past in container-create output.
+#
+# Set here rather than as devcontainer.metadata remoteEnv so it also holds for a
+# plain `docker run`. The inherited LaTeX remoteEnv interpolates
+# ${containerEnv:PATH}, so it composes with this rather than overwriting it.
+ENV PATH="/home/devuser/.local/bin:${PATH}"
+
 USER devuser
