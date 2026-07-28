@@ -11,3 +11,10 @@ dill
 
 # Verification cells and build-script tests
 pytest
+
+# Figure rendering and measurement. pillow already arrives as a matplotlib
+# dependency, so this install is a no-op -- it is declared because figure
+# scripts import it directly, and a direct import should not rest on another
+# package's dependency tree.
+pillow
+cairosvg
