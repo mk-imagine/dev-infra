@@ -24,12 +24,13 @@ USER root
 # fontconfig    — font discovery (fc-match/fc-list). Also how a build script
 #                 asserts the intended family actually resolved rather than
 #                 trusting that it did.
-# libcairo2     — cairosvg's rendering backend.
-# librsvg2-bin  — rsvg-convert, the reference SVG->PNG renderer for this image.
-#                 It shapes text through Pango/HarfBuzz; cairosvg goes through
-#                 cairo's "toy" text API, which is fine for embedding but not
-#                 trustworthy for measuring text-heavy figures. Both ship; the
-#                 README names which one is authoritative.
+# librsvg2-bin  — rsvg-convert, the SVG->PNG renderer, and the only one here.
+#                 It shapes text through Pango/HarfBuzz. cairosvg was dropped
+#                 after measurement: identical geometry but drifting glyph
+#                 advances, and a second renderer means a standing question of
+#                 which output is authoritative. Pulls libcairo2 itself, so
+#                 cairo is not listed separately. See the README for why PyMuPDF
+#                 cannot serve as a single SVG+PDF tool.
 COPY apt-packages.txt /tmp/
 RUN apt-get update && apt-get install -y --no-install-recommends \
     $(cat /tmp/apt-packages.txt) \

@@ -12,12 +12,11 @@ dill
 # Verification cells and build-script tests
 pytest
 
-# Figure rendering and measurement. pillow already arrives as a matplotlib
-# dependency, so this install is a no-op -- it is declared because figure
-# scripts import it directly, and a direct import should not rest on another
-# package's dependency tree.
+# Figure measurement -- reading back the PNGs that rsvg-convert produces. pillow
+# already arrives as a matplotlib dependency, so this install is a no-op; it is
+# declared because figure scripts import it directly, and a direct import should
+# not rest on another package's dependency tree.
 pillow
-cairosvg
 
 # Perceptual image hashing. Backs the image-dedup leakage screen: near-duplicate
 # images split across train and test inflate scores without any model learning

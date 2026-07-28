@@ -14,9 +14,9 @@ and verify notebooks without installing anything at container start.
 | `matplotlib`, `seaborn` | Plotting. `seaborn` also pulls the statistical-plot layer used for distribution and correlation figures. |
 | `dill` | Serialization beyond `pickle` — lambdas, closures, and fitted-model bundles. |
 | `pytest` | Verification cells and build-script tests. |
-| `pillow`, `cairosvg` | Rasterize and measure hand-authored SVG figures. `pillow` already arrives as a `matplotlib` dependency; it is declared because figure scripts import it directly. |
+| `pillow` | Read back and measure rendered figures. Already arrives as a `matplotlib` dependency; declared because figure scripts import it directly. |
 | `imagehash` | Perceptual image hashing for the image-dedup leakage screen — catches near-duplicates split across train/test, which exact hashing misses because a resize changes every byte. |
-| `librsvg2-bin`, `libcairo2` (apt) | SVG rendering backends — see [Rendering figures](#rendering-figures). |
+| `librsvg2-bin` (apt) | `rsvg-convert`, the SVG renderer — see [Rendering figures](#rendering-figures). Pulls `libcairo2` itself, so cairo is not declared separately. |
 | `fonts-dejavu`, `fontconfig` (apt) | The figure typeface, plus the means to verify it actually resolved. |
 
 **Inherited from `py-sci-base`:** git, curl, build-essential, poppler-utils, numpy, pandas, openpyxl
@@ -40,11 +40,26 @@ measured off it is wrong. `fc-match` is the cheap assertion —
 fc-match "DejaVu Sans"          # -> DejaVuSans.ttf: "DejaVu Sans" "Book"
 ```
 
-**`rsvg-convert` is the reference renderer.** It shapes text through
-Pango/HarfBuzz rather than cairo's "toy" text API, which is what `cairosvg`
-uses. `cairosvg` ships too and is convenient from Python — fine for embedding a
-figure, not what you want when the question is where text actually ends.
-Measure with `rsvg-convert`.
+**`rsvg-convert` renders SVG.** It is the only SVG renderer here, deliberately —
+one tool per format, so there is never a question of which output is the real
+one. It shapes text through Pango/HarfBuzz.
+
+Two alternatives were measured against it on a real CSS-styled figure and both
+rejected:
+
+- **`cairosvg`** shipped here briefly. Geometry matched `rsvg-convert` pixel for
+  pixel, but text drifted — it lays out through cairo's "toy" text API, so glyph
+  advances accumulate error and the two renderers disagreed on ~6% of pixels,
+  all of it type, worsening along each line. Fine for embedding a figure;
+  useless for deciding where text ends.
+- **PyMuPDF** cannot render these figures at all. MuPDF's SVG parser does not
+  apply `<style>` block CSS selectors, so class-styled elements fall back to
+  black fill and the artboard rect swallows the page. It returns a correct page
+  rect and a valid PNG that is entirely black — a silent failure, and Illustrator
+  exports styling as CSS classes exclusively.
+
+PyMuPDF remains the right tool for *PDF* text extraction and editing, which
+poppler's CLI does not cover. It is not a substitute for `rsvg-convert`.
 
 ```bash
 rsvg-convert -w 1750 figure.svg -o figure.png     # -b white for an opaque PNG

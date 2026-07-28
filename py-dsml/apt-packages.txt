@@ -1,4 +1,3 @@
 fonts-dejavu
 fontconfig
-libcairo2
 librsvg2-bin
