@@ -15,6 +15,7 @@ and verify notebooks without installing anything at container start.
 | `dill` | Serialization beyond `pickle` — lambdas, closures, and fitted-model bundles. |
 | `pytest` | Verification cells and build-script tests. |
 | `pillow`, `cairosvg` | Rasterize and measure hand-authored SVG figures. `pillow` already arrives as a `matplotlib` dependency; it is declared because figure scripts import it directly. |
+| `imagehash` | Perceptual image hashing for the image-dedup leakage screen — catches near-duplicates split across train/test, which exact hashing misses because a resize changes every byte. |
 | `librsvg2-bin`, `libcairo2` (apt) | SVG rendering backends — see [Rendering figures](#rendering-figures). |
 | `fonts-dejavu`, `fontconfig` (apt) | The figure typeface, plus the means to verify it actually resolved. |
 
