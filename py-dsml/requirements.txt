@@ -23,3 +23,11 @@ pillow
 # anything, and exact-hash comparison misses them because a resize or
 # requantization changes every byte.
 imagehash
+
+# Google Drive fetches from inside notebooks. Every lecture notebook nbgen emits
+# carries a `display_image` helper that imports gdown at cell top to pull figures
+# and animations by Drive share id. Colab preinstalls it, so the gap only shows
+# up in headless execution: without it, the import fails before any figure cell
+# runs and every lecture master fails the execution gate on a helper it never
+# calls.
+gdown
