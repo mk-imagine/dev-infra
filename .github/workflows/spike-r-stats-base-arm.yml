@@ -1,0 +1,95 @@
+# SPIKE -- not part of the normal build matrix. Delete once its question is
+# answered.
+#
+# Question: build-r-stats-base.yml takes 283 minutes, almost all of it arm64 R
+# packages compiled from source under QEMU emulation. GitHub now offers free
+# native arm64 runners for public repos. Is a native arm64 build meaningfully
+# faster, and does the resulting image actually work?
+#
+# Scope is deliberately narrow. This builds ONE architecture on ONE runner and
+# pushes to a throwaway tag. It does not touch build-r-stats-base.yml, does not
+# publish :latest, and does not implement the digest+manifest-merge pattern that
+# a real conversion needs -- the merge mechanics are well documented and low
+# risk, whereas the build time is the unknown worth paying to measure.
+#
+# Baseline to beat: 283 min for the current both-arches-under-QEMU job.
+
+name: SPIKE r-stats-base native arm64
+
+# Triggered by pushing the spike branch. workflow_dispatch alone would not
+# work: GitHub only exposes that trigger for workflows already present on the
+# default branch, and this one deliberately never lands there.
+on:
+  push:
+    branches: [spike-r-stats-base-native-arm64]
+  workflow_dispatch:
+
+env:
+  IMAGE: ghcr.io/mk-imagine/r-stats-base
+
+jobs:
+  build-arm64-native:
+    # The whole point of the spike. Free for public repos.
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Record runner architecture
+        run: |
+          echo "uname -m: $(uname -m)"
+          echo "nproc:    $(nproc)"
+          free -g | head -2
+          df -h / | tail -1
+
+      # Deliberately no docker/setup-qemu-action. On a native arm64 runner
+      # building linux/arm64, QEMU is exactly the overhead being removed.
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build arm64 natively (timed)
+        id: build
+        run: |
+          start=$(date +%s)
+          docker buildx build \
+            --platform linux/arm64 \
+            --tag "$IMAGE:spike-arm64" \
+            --push \
+            r-stats-base/
+          end=$(date +%s)
+          mins=$(( (end - start) / 60 ))
+          echo "elapsed_minutes=$mins" >> "$GITHUB_OUTPUT"
+          echo "Native arm64 build took ${mins} min (QEMU baseline: 283 min for both arches)"
+
+      # The emulated build never got this check -- an amd64 runner cannot run an
+      # arm64 image without emulation. Here the runner IS arm64, so the image
+      # runs natively and R is actually exercised rather than merely built.
+      - name: Smoke test the built image
+        run: |
+          docker run --rm "$IMAGE:spike-arm64" R --version | head -2
+          docker run --rm "$IMAGE:spike-arm64" Rscript -e \
+            'library(tidyverse); library(caret); cat("R packages load OK\n")'
+          docker run --rm "$IMAGE:spike-arm64" pandoc --version | head -1
+          docker run --rm "$IMAGE:spike-arm64" sh -c 'radian --version || true'
+
+      - name: Report
+        run: |
+          {
+            echo "## Native arm64 spike result"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Native arm64 build | **${{ steps.build.outputs.elapsed_minutes }} min** |"
+            echo "| QEMU baseline (both arches) | 283 min |"
+            echo "| Runner | \`ubuntu-24.04-arm\`, $(nproc) cores |"
+            echo ""
+            echo "Pushed to \`$IMAGE:spike-arm64\` — delete this tag when done."
+          } >> "$GITHUB_STEP_SUMMARY"
