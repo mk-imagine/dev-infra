@@ -19,6 +19,7 @@ All images live under `ghcr.io/mk-imagine/`:
 | [`py-sci-jupyter-torch`](#py-sci-jupyter-torch) | ML + torch, torchvision, torchaudio | `py-sci-jupyter-torch/` |
 | [`py-sci-jupyter-torch-latex`](#py-sci-jupyter-torch-latex) | Torch + LaTeX devcontainer metadata (no packages) | `py-sci-jupyter-torch-latex/` |
 | [`py-dsml`](#py-dsml) | Torch-LaTeX + nbclient/nbformat, matplotlib/seaborn, dill, pytest, SVG rendering | `py-dsml/` |
+| [`py-torch-cuda`](#py-torch-cuda) | GPU PyTorch — CUDA wheels, no Jupyter, amd64-only | `py-torch-cuda/` |
 | [`plantuml`](#plantuml) | PlantUML CLI — JRE + Graphviz + pinned `plantuml.jar` | `plantuml/` |
 
 ### Image dependencies
@@ -222,6 +223,55 @@ Each image's full dependency list, including packages inherited from parent imag
 
 ---
 
+#### `py-torch-cuda`
+
+> Standalone GPU image (`python:3.13-slim`). No parent, and deliberately not part
+> of the `py-sci-*` chain: no Jupyter layer, no pandas/openpyxl science stack.
+> **amd64-only** — PyTorch publishes CUDA wheels for x86_64 alone.
+
+**System packages (apt):** git, curl
+
+> Torch needs *no* apt packages: the CUDA wheels are self-contained. These two
+> are a usability choice for a prototyping box, confirmed by installing torch
+> into a stock `python:3.13-slim` container with nothing added.
+
+**Python packages:** torch, torchvision, numpy — from `--index-url https://download.pytorch.org/whl/cu132`
+
+**Size: 8.07GB.** Most of it is the vendored CUDA 13.2 runtime pulled in as pip
+dependencies (`nvidia-cudnn-cu13` alone is ~2GB), plus `triton`. This is why the
+workflow both frees runner disk before building and skips the GHA layer cache.
+
+**No `nvidia/cuda` base image.** The PyTorch CUDA wheels vendor their own CUDA
+runtime and cuDNN as ordinary pip dependencies (the `nvidia-*` packages), so the
+only host requirements are the NVIDIA driver and `nvidia-container-toolkit`. A
+CUDA base image would roughly double the size to supply a toolkit that matters
+only when compiling CUDA extensions from source. If that need appears, add a
+`-devel` variant rather than inflating this one.
+
+**No `torchaudio`.** It entered maintenance mode in 2.8, had its APIs removed in
+2.9, and 2.11 was its final release — it is not published for torch 2.12+ and no
+`cu132` wheel exists at any Python version. Audio/video decoding moved to
+`torchcodec`; install it per-experiment. Keeping `torchaudio` would mean pinning
+torch back two minor versions for an end-of-life package.
+
+> **Check Ampere support when bumping the CUDA index.** CUDA 13 dropped every
+> architecture below Turing. After changing the `cu1xx` index, verify the target
+> card is still compiled in rather than assuming:
+> ```bash
+> docker run --rm --gpus all ghcr.io/mk-imagine/py-torch-cuda:latest \
+>   python -c "import torch; print(torch.cuda.get_arch_list())"
+> ```
+> `sm_86` must appear for an RTX 3070, or Ampere silently falls back to PTX JIT.
+
+**Host requirements:** NVIDIA driver and `nvidia-container-toolkit`. Run with `--gpus all`:
+
+```bash
+docker run --rm --gpus all ghcr.io/mk-imagine/py-torch-cuda:latest \
+  python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+```
+
+---
+
 #### `plantuml`
 
 > Standalone CLI image (Debian 12 slim) for rendering PlantUML diagrams. No parent.
@@ -266,9 +316,11 @@ Each image is tagged with `latest` and the short commit SHA for rollback.
 ## CI/CD
 
 GitHub Actions workflows in `.github/workflows/`, one per image, build and push
-`linux/arm64,linux/amd64` under QEMU. Each triggers on a push to `main` touching
-its own directory, and a parent's `trigger-children` job dispatches its children
-on completion:
+`linux/arm64,linux/amd64` under QEMU — except `build-py-torch-cuda.yml`, which is
+amd64-only and builds natively, and which also omits the GHA layer cache the
+others use (a multi-GB image would evict the whole repo's 10GB cache budget).
+Each triggers on a push to `main` touching its own directory, and a parent's
+`trigger-children` job dispatches its children on completion:
 
 | Workflow | Path trigger | Cascades to |
 |----------|--------------|-------------|
@@ -284,6 +336,7 @@ on completion:
 | `build-py-sci-jupyter-torch.yml` | `py-sci-jupyter-torch/` | **— (gap, see below)** |
 | `build-py-sci-jupyter-torch-latex.yml` | `py-sci-jupyter-torch-latex/` | `build-py-dsml.yml` |
 | `build-py-dsml.yml` | `py-dsml/` | — |
+| `build-py-torch-cuda.yml` | `py-torch-cuda/` | — (standalone) |
 
 > **Known cascade gap.** `build-py-sci-jupyter-torch.yml` has no
 > `trigger-children` job, so the chain breaks between `py-sci-jupyter-torch` and
