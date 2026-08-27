@@ -4,6 +4,14 @@ ARG PANDOC_VERSION=3.9
 ARG TARGETARCH
 
 # 1. Install system dependencies
+#
+# libuv1-dev is required by the R package `fs`, which vendored its own libuv
+# until 2.1.0 and now links the system one. `fs` is not in r-packages.txt -- it
+# arrives as a transitive dependency, and when it fails to configure it takes
+# sass, gargle and pkgload with it, and through them bslib, rmarkdown,
+# roxygen2, googledrive, googlesheets4, reprex, languageserver and tidyverse.
+# The build error that surfaces names tidyverse, not fs, so start at the first
+# configure failure rather than the last one reported.
 COPY apt-packages.txt /tmp/
 RUN apt-get update && apt-get install -y --no-install-recommends \
     $(cat /tmp/apt-packages.txt) \
