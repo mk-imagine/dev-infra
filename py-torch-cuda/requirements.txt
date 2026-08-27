@@ -1,0 +1,27 @@
+# CUDA 13.2 wheels.
+#
+# --index-url, NOT --extra-index-url. The "extra" form leaves PyPI in the
+# resolver's search path, which is exactly how a GPU image silently ends up with
+# CPU-only torch: PyPI carries a same-named, higher-precedence wheel with no
+# CUDA in it. Replacing the index outright means a wrong, moved, or dead index
+# fails the build loudly instead of shipping a working-but-CPU image. The
+# PyTorch mirror also serves numpy/pillow/filelock, so nothing here needs PyPI.
+#
+# Note this differs deliberately from py-sci-jupyter-torch, which uses
+# --extra-index-url against the /cpu index -- there, a PyPI fallback is harmless
+# because CPU wheels are what that image wants anyway.
+--index-url https://download.pytorch.org/whl/cu132
+
+torch
+torchvision
+
+# torch has no hard dependency on numpy, but warns on every single import
+# without it ("Failed to initialize NumPy: No module named 'numpy'") and loses
+# .numpy() interop. Declared rather than left to arrive via torchvision.
+numpy
+
+# torchaudio is deliberately absent. It entered maintenance mode in 2.8, had its
+# APIs removed in 2.9, and 2.11 was the final release -- it is not published for
+# torch 2.12+, and no cu132 wheel exists at any Python version. Keeping it would
+# mean pinning torch back two minor versions for a package already end-of-life.
+# Audio/video decoding moved to torchcodec; install it per-experiment if needed.

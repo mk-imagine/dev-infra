@@ -16,6 +16,8 @@ latex-base             ← standalone minimal Debian runtime that CONSUMES latex
 
 plantuml               ← standalone PlantUML CLI (JRE + Graphviz + pinned plantuml.jar)
 
+py-torch-cuda          ← standalone GPU/PyTorch image (CUDA wheels, amd64-only)
+
 r-stats-base           ← rocker/r-ver:4.5.2, pandoc, radian, core R packages
   └── r-stats-psy      ← base + psychology/stats R packages
 
@@ -32,6 +34,24 @@ py-sci-base            ← python:3.13-slim + numpy, pandas, openpyxl
 *populates* the `latex-shared` volume, `latex-base` is the smallest image that
 *runs* LaTeX from it. Neither has a `FROM` relationship to the other or to
 anything else in the repo.
+
+`py-torch-cuda` is a separate root rather than a child of `py-sci-base`, and
+**it is the one image in this repo that breaks the shared conventions.** Three
+deviations, all deliberate and all documented in its Dockerfile and workflow:
+
+| Convention | `py-torch-cuda` | Why |
+|---|---|---|
+| `platforms: linux/arm64,linux/amd64` | **amd64 only** | PyTorch publishes CUDA wheels for x86_64 alone. Dropping arm64 also means it builds natively instead of under QEMU. |
+| `cache-from`/`cache-to: type=gha` | **no GHA cache** | The image measures 8.07GB against GitHub's 10GB per-repo cache cap, which evicts LRU repo-wide — caching it would consume nearly the whole budget and evict every other image's cache. A cold build is 3m50s. |
+| `--extra-index-url` (as in `py-sci-jupyter-torch`) | **`--index-url`** | The "extra" form leaves PyPI in the resolver path, which is how a GPU image silently gets CPU-only torch. Replacing the index makes a bad index fail loudly. |
+
+Do not "fix" these to match the other images.
+
+> **Ampere check when bumping the CUDA index.** CUDA 13 already dropped every
+> architecture below Turing. After changing the `cu1xx` index in
+> `requirements.txt`, confirm the target card's arch is still compiled in rather
+> than assuming — `torch.cuda.get_arch_list()` must contain it (`sm_86` for the
+> RTX 3070), or Ampere silently falls back to PTX JIT.
 
 Child images are rebuilt automatically via `workflow_dispatch` cascade from the parent workflow's `trigger-children` job.
 
@@ -149,7 +169,7 @@ and then never rebuilds when its parent changes. Grep the parent's workflow for
 
 ## CI/CD
 
-Workflows live in `.github/workflows/`, one per image, all structurally identical. Each:
+Workflows live in `.github/workflows/`, one per image. All are structurally identical except `build-py-torch-cuda.yml` (see the table above). Each:
 - Triggers on `push` to `main` scoped to its image directory, plus `workflow_dispatch`
 - Builds `linux/arm64,linux/amd64` via QEMU and pushes with tags `latest` and short SHA
 - Uses GitHub Actions cache (`type=gha`, `mode=max`) for layer caching
