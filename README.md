@@ -12,13 +12,13 @@ All images live under `ghcr.io/mk-imagine/`:
 | [`latex-base`](#latex-base) | Minimal Debian runtime for building LaTeX from `latex-shared` | `latex-base/` |
 | [`r-stats-base`](#r-stats-base) | R 4.5.2, pandoc 3.9, radian, core R packages | `r-stats-base/` |
 | [`r-stats-psy`](#r-stats-psy) | Base + psychology statistics R packages | `r-stats-psy/` |
-| [`py-sci-base`](#py-sci-base) | Python 3.13, numpy, pandas, system essentials | `py-sci-base/` |
+| [`py-sci-base`](#py-sci-base) | Python 3.13, numpy, pandas, openpyxl, system essentials | `py-sci-base/` |
 | [`py-sci-jupyter`](#py-sci-jupyter) | Base + ipython, ipywidgets, ipykernel | `py-sci-jupyter/` |
 | [`py-manim`](#py-manim) | Jupyter + manim, cairo/pango/ffmpeg; LaTeX via `latex-shared` | `py-manim/` |
 | [`py-sci-jupyter-ml`](#py-sci-jupyter-ml) | Jupyter + scikit-learn, scikit-optimize, optuna | `py-sci-jupyter-ml/` |
 | [`py-sci-jupyter-torch`](#py-sci-jupyter-torch) | ML + torch, torchvision, torchaudio | `py-sci-jupyter-torch/` |
 | [`py-sci-jupyter-torch-latex`](#py-sci-jupyter-torch-latex) | Torch + LaTeX devcontainer metadata (no packages) | `py-sci-jupyter-torch-latex/` |
-| [`py-dsml`](#py-dsml) | Torch-LaTeX + nbclient/nbformat, matplotlib/seaborn, dill, pytest | `py-dsml/` |
+| [`py-dsml`](#py-dsml) | Torch-LaTeX + nbclient/nbformat, matplotlib/seaborn, dill, pytest, SVG rendering | `py-dsml/` |
 | [`plantuml`](#plantuml) | PlantUML CLI — JRE + Graphviz + pinned `plantuml.jar` | `plantuml/` |
 
 ### Image dependencies
@@ -124,9 +124,9 @@ Each image's full dependency list, including packages inherited from parent imag
 
 > Base image: `python:3.13-slim`. Core scientific Python stack.
 
-**System packages (apt):** git, curl, build-essential
+**System packages (apt):** git, curl, build-essential, poppler-utils
 
-**Python packages:** numpy, pandas
+**Python packages:** numpy, pandas, openpyxl
 
 ---
 
@@ -134,7 +134,7 @@ Each image's full dependency list, including packages inherited from parent imag
 
 > Parent: `py-sci-base`. Adds Jupyter notebook infrastructure.
 
-**Inherited from `py-sci-base`:** all system packages and Python packages (numpy, pandas).
+**Inherited from `py-sci-base`:** all system packages and Python packages (numpy, pandas, openpyxl).
 
 **Additional Python packages:** ipython, ipywidgets, ipykernel
 
@@ -162,7 +162,7 @@ Each image's full dependency list, including packages inherited from parent imag
 
 > Parent: `py-sci-jupyter`. Adds machine learning libraries.
 
-**Inherited from `py-sci-base`:** git, curl, build-essential, numpy, pandas
+**Inherited from `py-sci-base`:** git, curl, build-essential, poppler-utils, numpy, pandas, openpyxl
 
 **Inherited from `py-sci-jupyter`:** ipython, ipywidgets, ipykernel
 
@@ -174,7 +174,7 @@ Each image's full dependency list, including packages inherited from parent imag
 
 > Parent: `py-sci-jupyter-ml`. Adds PyTorch stack (CPU wheels).
 
-**Inherited from `py-sci-base`:** git, curl, build-essential, numpy, pandas
+**Inherited from `py-sci-base`:** git, curl, build-essential, poppler-utils, numpy, pandas, openpyxl
 
 **Inherited from `py-sci-jupyter`:** ipython, ipywidgets, ipykernel
 
@@ -210,7 +210,13 @@ Each image's full dependency list, including packages inherited from parent imag
 
 **Inherited from `py-sci-jupyter-torch-latex`:** the LaTeX `devcontainer.metadata` LABEL
 
-**Additional Python packages:** nbclient, nbformat, matplotlib, seaborn, dill, pytest
+**Additional system packages:** fonts-dejavu, fontconfig, librsvg2-bin
+
+**Additional Python packages:** nbclient, nbformat, matplotlib, seaborn, dill, pytest, pillow, imagehash
+
+**Image metadata:** `/home/devuser/.local/bin` prepended to `PATH` via `ENV`, so console scripts from a `pip install` run inside a live container (which falls back to the user scheme under the non-root default user) are found. It composes with rather than replaces the inherited LaTeX `remoteEnv`, which interpolates `${containerEnv:PATH}`.
+
+**Rendering:** SVG figures are rasterized with `rsvg-convert` (the only SVG renderer in the image, deliberately) against DejaVu Sans. See [`py-dsml/README.md`](py-dsml/README.md) for why `cairosvg` and PyMuPDF were measured and rejected, and for the ink-bounds measurement recipe.
 
 **Not included by design:** project-local editable packages, and course/project-specific Jupyter kernelspecs — this image ships the stock `python3` kernel only. See `py-dsml/README.md`.
 
@@ -259,19 +265,35 @@ Each image is tagged with `latest` and the short commit SHA for rollback.
 
 ## CI/CD
 
-GitHub Actions workflows in `.github/workflows/` build and push each image:
+GitHub Actions workflows in `.github/workflows/`, one per image, build and push
+`linux/arm64,linux/amd64` under QEMU. Each triggers on a push to `main` touching
+its own directory, and a parent's `trigger-children` job dispatches its children
+on completion:
 
-- **build-latex-sidecar.yml** — triggers on changes to `latex-sidecar/`
-- **build-latex-base.yml** — triggers on changes to `latex-base/` (standalone, no cascade)
-- **build-r-stats-base.yml** — triggers on changes to `r-stats-base/`; on completion, dispatches child image rebuilds
-- **build-r-stats-psy.yml** — triggers on changes to `r-stats-psy/` or when base rebuilds
-- **build-py-sci-base.yml** — triggers on changes to `py-sci-base/`; cascades to jupyter
-- **build-py-sci-jupyter.yml** — triggers on changes to `py-sci-jupyter/` or when base rebuilds; cascades to jupyter-ml
-- **build-py-sci-jupyter-ml.yml** — triggers on changes to `py-sci-jupyter-ml/` or when jupyter rebuilds; cascades to jupyter-torch
-- **build-py-sci-jupyter-torch.yml** — triggers on changes to `py-sci-jupyter-torch/` or when jupyter-ml rebuilds
-- **build-plantuml.yml** — triggers on changes to `plantuml/` (standalone, no cascade)
+| Workflow | Path trigger | Cascades to |
+|----------|--------------|-------------|
+| `build-latex-sidecar.yml` | `latex-sidecar/` | — (standalone) |
+| `build-latex-base.yml` | `latex-base/` | — (standalone) |
+| `build-plantuml.yml` | `plantuml/` | — (standalone) |
+| `build-r-stats-base.yml` | `r-stats-base/` | `build-r-stats-psy.yml` |
+| `build-r-stats-psy.yml` | `r-stats-psy/` | — |
+| `build-py-sci-base.yml` | `py-sci-base/` | `build-py-sci-jupyter.yml` |
+| `build-py-sci-jupyter.yml` | `py-sci-jupyter/` | `build-py-sci-jupyter-ml.yml`, `build-py-manim.yml` |
+| `build-py-manim.yml` | `py-manim/` | — |
+| `build-py-sci-jupyter-ml.yml` | `py-sci-jupyter-ml/` | `build-py-sci-jupyter-torch.yml` |
+| `build-py-sci-jupyter-torch.yml` | `py-sci-jupyter-torch/` | **— (gap, see below)** |
+| `build-py-sci-jupyter-torch-latex.yml` | `py-sci-jupyter-torch-latex/` | `build-py-dsml.yml` |
+| `build-py-dsml.yml` | `py-dsml/` | — |
 
-All workflows also support `workflow_dispatch` for manual rebuilds.
+> **Known cascade gap.** `build-py-sci-jupyter-torch.yml` has no
+> `trigger-children` job, so the chain breaks between `py-sci-jupyter-torch` and
+> `py-sci-jupyter-torch-latex`: the LaTeX image and `py-dsml` below it are *not*
+> rebuilt when the torch image changes. Until the matrix is wired, rebuild by
+> hand with `gh workflow run build-py-sci-jupyter-torch-latex.yml`, which does
+> cascade on to `py-dsml`.
+
+All workflows also support `workflow_dispatch` for manual rebuilds
+(`gh workflow run <name>.yml`, or the Actions UI "Run workflow" button).
 
 ## LaTeX Sidecar
 
@@ -340,6 +362,24 @@ To share a global gitignore across all devcontainers (including remote/Codespace
 
 This approach is portable — it works on any host without requiring a local `~/.config/git/ignore` file.
 
+## Building locally
+
+Every child Dockerfile pins `FROM ghcr.io/mk-imagine/<parent>:latest` — the
+**published** parent, not the working tree. A plain `docker build` of a child
+therefore tests the change against the last image CI published, not against a
+parent edited in the same commit. To exercise a chain change locally, build each
+ancestor under the tag its child expects, bottom-up:
+
+```bash
+docker build -t ghcr.io/mk-imagine/py-sci-base:latest    py-sci-base/
+docker build -t ghcr.io/mk-imagine/py-sci-jupyter:latest py-sci-jupyter/
+docker build -t py-dsml:local                            py-dsml/
+```
+
+Local builds are single-arch (host only); CI builds both arches under QEMU, so a
+local pass on one architecture does not prove the other. Check the other arch
+with `docker buildx build --platform linux/amd64 …` before pushing.
+
 ## Adding a new child image
 
 ### R ecosystem
@@ -355,3 +395,11 @@ This approach is portable — it works on any host without requiring a local `~/
 2. The Dockerfile should `FROM` the appropriate parent image (e.g., `ghcr.io/mk-imagine/py-sci-base:latest` or `py-sci-jupyter:latest`)
 3. Add a workflow in `.github/workflows/build-py-sci-<name>.yml`
 4. Add the workflow filename to the `trigger-children` matrix in the parent's workflow
+
+Step 4 is the one that gets missed: a new image builds fine on its own push and
+then silently never rebuilds when its parent changes. Confirm the new filename
+appears in the parent workflow's matrix, and add a row to the CI/CD table above.
+
+Any package or image change also means updating the **Image dependencies**
+tables above — they list inherited packages per image and nothing generates or
+verifies them, so they drift silently.
