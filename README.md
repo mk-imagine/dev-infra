@@ -239,7 +239,8 @@ Each image's full dependency list, including packages inherited from parent imag
 
 **Size: 8.07GB.** Most of it is the vendored CUDA 13.2 runtime pulled in as pip
 dependencies (`nvidia-cudnn-cu13` alone is ~2GB), plus `triton`. This is why the
-workflow both frees runner disk before building and skips the GHA layer cache.
+workflow skips the GHA layer cache. Runner disk is not a constraint — a build
+measured 105GB free — so no cleanup step is needed.
 
 **No `nvidia/cuda` base image.** The PyTorch CUDA wheels vendor their own CUDA
 runtime and cuDNN as ordinary pip dependencies (the `nvidia-*` packages), so the
