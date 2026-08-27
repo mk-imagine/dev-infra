@@ -42,7 +42,7 @@ deviations, all deliberate and all documented in its Dockerfile and workflow:
 | Convention | `py-torch-cuda` | Why |
 |---|---|---|
 | `platforms: linux/arm64,linux/amd64` | **amd64 only** | PyTorch publishes CUDA wheels for x86_64 alone. Dropping arm64 also means it builds natively instead of under QEMU. |
-| `cache-from`/`cache-to: type=gha` | **no GHA cache** | The image measures 8.07GB against GitHub's 10GB per-repo cache cap, which evicts LRU repo-wide — caching it would consume nearly the whole budget and evict every other image's cache. A cold build is 3m50s. |
+| `cache-from`/`cache-to: type=gha` | **no GHA cache** | The image is 8.07GB against GitHub's 10GB per-repo cache cap. In practice this repo's caches are always empty anyway — entries expire after 7 days unused and builds here are ~monthly — so the cache would never be warm, and writing 8GB of it costs upload time every build. |
 | `--extra-index-url` (as in `py-sci-jupyter-torch`) | **`--index-url`** | The "extra" form leaves PyPI in the resolver path, which is how a GPU image silently gets CPU-only torch. Replacing the index makes a bad index fail loudly. |
 
 Do not "fix" these to match the other images.

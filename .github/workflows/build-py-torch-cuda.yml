@@ -32,17 +32,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # This step is load-bearing, not precautionary. The built image measures
-      # 8.07GB (torch + torchvision + the vendored nvidia-* CUDA 13.2 runtime,
-      # of which cuDNN alone is ~2GB), and the build needs room for the pip
-      # download, the unpacked layer, and the export on top of that. Reclaim the
-      # preinstalled toolchains this build never touches so it fails on its
-      # merits rather than on ENOSPC.
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-          df -h /
-
       - uses: docker/metadata-action@v6
         id: meta
         with:
