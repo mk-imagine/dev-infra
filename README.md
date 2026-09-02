@@ -19,6 +19,7 @@ All images live under `ghcr.io/mk-imagine/`:
 | [`py-sci-jupyter-torch`](#py-sci-jupyter-torch) | ML + torch, torchvision, torchaudio | `py-sci-jupyter-torch/` |
 | [`py-sci-jupyter-torch-latex`](#py-sci-jupyter-torch-latex) | Torch + LaTeX devcontainer metadata (no packages) | `py-sci-jupyter-torch-latex/` |
 | [`py-dsml`](#py-dsml) | Torch-LaTeX + nbclient/nbformat, matplotlib/seaborn, dill, pytest, SVG rendering | `py-dsml/` |
+| [`py-sci-psy`](#py-sci-psy) | Base + plotly, kaleido, chromium; LaTeX devcontainer metadata; no Jupyter | `py-sci-psy/` |
 | [`py-torch-cuda`](#py-torch-cuda) | GPU PyTorch — CUDA wheels, no Jupyter, amd64-only | `py-torch-cuda/` |
 | [`plantuml`](#plantuml) | PlantUML CLI — JRE + Graphviz + pinned `plantuml.jar` | `plantuml/` |
 
@@ -220,6 +221,26 @@ Each image's full dependency list, including packages inherited from parent imag
 **Rendering:** SVG figures are rasterized with `rsvg-convert` (the only SVG renderer in the image, deliberately) against DejaVu Sans. See [`py-dsml/README.md`](py-dsml/README.md) for why `cairosvg` and PyMuPDF were measured and rejected, and for the ink-bounds measurement recipe.
 
 **Not included by design:** project-local editable packages, and course/project-specific Jupyter kernelspecs — this image ships the stock `python3` kernel only. See `py-dsml/README.md`.
+
+---
+
+#### `py-sci-psy`
+
+> Parent: `py-sci-base`. Psychology-research image — numpy/pandas modelling plus plotly figures destined for LaTeX. Script-driven, so no Jupyter layer. Carries a copy of the LaTeX `devcontainer.metadata` LABEL (mount `latex-shared` at `/opt/TinyTeX`).
+
+**System packages (apt):** chromium, fonts-dejavu, fontconfig
+
+| Package | Why it's needed |
+|---------|-----------------|
+| chromium | kaleido v1 renders through a real browser; `write_image()` fails without one. Debian's build is used because `plotly_get_chrome` fetches Chrome for Testing, which is `linux64`-only and cannot serve the arm64 half of a multi-arch image. |
+| fonts-dejavu | chromium ships no fonts — labels export as tofu boxes without one. Same family as `py-manim` and `py-dsml`. |
+| fontconfig | Font discovery (`fc-match`/`fc-list`); how a build script asserts the intended family resolved. |
+
+**Python packages:** plotly, kaleido
+
+**Inherited from `py-sci-base`:** numpy, pandas, openpyxl · git, curl, build-essential, poppler-utils
+
+Deliberately absent: Jupyter, matplotlib/seaborn (this image standardises on plotly; `py-dsml` covers matplotlib work), torch, and any CUDA.
 
 ---
 

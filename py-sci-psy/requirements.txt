@@ -1,0 +1,11 @@
+# Interactive plotting. This image standardises on plotly rather than
+# matplotlib: figures are explored in the browser during analysis and exported
+# to static files for LaTeX, and carrying two plotting stacks would leave a
+# standing question of which one a given figure came from.
+plotly
+
+# Static export (PNG / PDF / SVG) for figures that land in slides or reports.
+# plotly renders interactively without it, but every write_image() call fails,
+# so it is a hard requirement here rather than an extra -- this repo's consumer
+# builds Beamer slides from these figures.
+kaleido
