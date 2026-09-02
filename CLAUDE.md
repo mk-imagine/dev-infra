@@ -22,6 +22,7 @@ r-stats-base           ← rocker/r-ver:4.5.2, pandoc, radian, core R packages
   └── r-stats-psy      ← base + psychology/stats R packages
 
 py-sci-base            ← python:3.13-slim + numpy, pandas, openpyxl
+  ├── py-sci-psy       ← plotly + kaleido + chromium; LaTeX metadata; no Jupyter
   └── py-sci-jupyter   ← base + Jupyter infrastructure
         ├── py-manim   ← manim + cairo/pango/ffmpeg; LaTeX via latex-shared volume
         └── py-sci-jupyter-ml    ← jupyter + scikit-learn, optuna
@@ -34,6 +35,12 @@ py-sci-base            ← python:3.13-slim + numpy, pandas, openpyxl
 *populates* the `latex-shared` volume, `latex-base` is the smallest image that
 *runs* LaTeX from it. Neither has a `FROM` relationship to the other or to
 anything else in the repo.
+
+`py-sci-psy` hangs off `py-sci-base` rather than the Jupyter chain because its
+consumer is script-driven: the Jupyter layer is the part it does not want, not
+the torch layer. It copies the LaTeX `devcontainer.metadata` LABEL from
+`py-sci-jupyter-torch-latex` rather than inheriting it, since that image sits on
+the other branch of the tree — **keep the two copies in sync.**
 
 `py-torch-cuda` is a separate root rather than a child of `py-sci-base`, and
 **it is the one image in this repo that breaks the shared conventions.** Three

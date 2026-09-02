@@ -1,14 +1,14 @@
-name: Build py-sci-base
+name: Build py-sci-psy
 
 on:
   push:
     branches: [main]
     paths:
-      - "py-sci-base/**"
+      - "py-sci-psy/**"
   workflow_dispatch:
 
 env:
-  IMAGE: ghcr.io/mk-imagine/py-sci-base
+  IMAGE: ghcr.io/mk-imagine/py-sci-psy
 
 jobs:
   build:
@@ -40,32 +40,10 @@ jobs:
 
       - uses: docker/build-push-action@v7
         with:
-          context: py-sci-base
+          context: py-sci-psy
           platforms: linux/arm64,linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  trigger-children:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      actions: write
-      contents: read
-    strategy:
-      matrix:
-        workflow:
-          - build-py-sci-jupyter.yml
-          - build-py-sci-psy.yml
-    steps:
-      - uses: actions/github-script@v8
-        with:
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: '${{ matrix.workflow }}',
-              ref: 'main'
-            });
