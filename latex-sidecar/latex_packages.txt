@@ -31,8 +31,12 @@ tools                   # Standard LaTeX tools bundle (array, tabularx, etc.)
 # -----------------------------------------------------------------------------
 # LaTeX3 Programming Layer
 # -----------------------------------------------------------------------------
-l3kernel                # LaTeX3 kernel (expl3 programming interface)
-l3backend               # LaTeX3 backend interface for PDF/DVI output
+l3kernel                # LaTeX3 kernel (expl3 programming interface). Also
+                        #   carries the backend drivers: the separate
+                        #   l3backend package was folded into l3kernel
+                        #   upstream and no longer exists in tlnet, so
+                        #   naming it here fails the whole install with
+                        #   "package l3backend not present in repository".
 l3packages              # LaTeX3 high-level packages (xparse, xtemplate, etc.)
 
 
