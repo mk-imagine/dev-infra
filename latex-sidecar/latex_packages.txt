@@ -187,6 +187,12 @@ xetexconfig             # XeTeX format and configuration files
 beamer                  # LaTeX class for presentation slides
 pgf                     # Graphics framework (provides TikZ) — required by beamer
 translator              # Text-translation package — required by beamer
+moloch                  # Maintained fork of the metropolis beamer theme
+pgfopts                 # Package-option parser built on pgfkeys — required by
+                        #   moloch, which does NOT declare it as a TeX Live
+                        #   dependency. Installing moloch alone leaves every deck
+                        #   failing at "File `pgfopts.sty' not found" on moloch's
+                        #   first \pgfkeys call, so it must be listed explicitly.
 
 
 # -----------------------------------------------------------------------------

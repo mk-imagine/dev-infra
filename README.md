@@ -50,7 +50,7 @@ Each image's full dependency list, including packages inherited from parent imag
 | Unicode/Language | babel, babel-english, hyph-utf8, hyphen-base, dehyph, unicode-data, euenc, xunicode, tipa, selnolig |
 | LuaTeX | luatex, luahbtex, luaotfload, lualibs, luatexbase, lua-uni-algos, lua-alt-getopt |
 | XeTeX | xetex, xetexconfig |
-| Presentations | beamer, pgf, translator |
+| Presentations | beamer, pgf, translator, moloch, pgfopts |
 | Manim (`py-manim`) | standalone, preview, dvisvgm |
 | Misc | url, lipsum |
 
