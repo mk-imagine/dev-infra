@@ -60,7 +60,7 @@ Each image's full dependency list, including packages inherited from parent imag
 
 > Standalone runtime image (Debian 12 slim). Minimal companion to `latex-sidecar`: the sidecar **populates** the `latex-shared` volume; `latex-base` is the smallest base that **builds** LaTeX from it. Mount `latex-shared` at `/opt/TinyTeX` — `PATH` already points at `/opt/TinyTeX/bin/current`. Includes a `devuser` (UID 1000) matching the volume's ownership.
 
-**System packages (apt):** perl, libfontconfig1, fontconfig, gnupg, wget, ca-certificates, git, python3
+**System packages (apt):** perl, libfontconfig1, fontconfig, gnupg, wget, ca-certificates, git, python3, poppler-utils
 
 | Package | Why it's needed |
 |---------|-----------------|
@@ -71,6 +71,7 @@ Each image's full dependency list, including packages inherited from parent imag
 | wget, ca-certificates | `tlmgr` package downloads over HTTPS |
 | git | devcontainer / source hygiene |
 | python3 | utility scripts (e.g. aux-file cleanup) |
+| poppler-utils | reading the built PDF back: `pdftoppm`/`pdftocairo` render pages to PNG, `pdfinfo` reports page count and size, `pdftotext` makes the text greppable. LaTeX exits 0 on plenty of visually broken output, and TinyTeX ships nothing that can inspect a PDF. |
 
 > **`tlmgr` lives in the volume, not in this image.** It ships inside TinyTeX, so
 > its version is whatever `latex-sidecar` baked in when the volume was first
