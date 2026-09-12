@@ -32,6 +32,15 @@ ENV DEBIAN_FRONTEND=noninteractive
 #   ca-certificates — HTTPS for tlmgr / CTAN
 #   git             — devcontainer / source hygiene
 #   python3         — utility scripts (e.g. aux-file cleanup)
+#   poppler-utils   — inspecting the PDF that was just built. latexmk exits 0 on
+#                     plenty of visually broken output: a frame whose text runs
+#                     off the slide, a float shoved onto its own page, a missing
+#                     glyph rendered as a blank. Nothing in TinyTeX can read a
+#                     PDF back, so without this the only way to look at output
+#                     is to copy it out of the container. Provides pdftoppm and
+#                     pdftocairo (render pages to PNG), pdfinfo (page count and
+#                     size, cheap enough to assert on in a build script), and
+#                     pdftotext (grep the rendered text).
 RUN apt-get update && apt-get install -y --no-install-recommends \
         perl \
         libfontconfig1 \
@@ -41,6 +50,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
         git \
         python3 \
+        poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # UID 1000 user matching the ownership of the latex-shared volume (devuser in
