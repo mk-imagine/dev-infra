@@ -7,12 +7,24 @@ on:
       - "py-manim/**"
   workflow_dispatch:
 
+
 env:
   IMAGE: ghcr.io/mk-imagine/py-manim
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # One runner per architecture, each building its own native platform. This
+    # replaces a single amd64 runner that built linux/arm64 under QEMU, where
+    # every instruction in the arm64 half ran emulated.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
@@ -20,7 +32,76 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: docker/setup-qemu-action@v4
+      # Artifact names may not contain "/", so linux/amd64 becomes linux-amd64.
+      - name: Prepare platform slug
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: echo "PLATFORM_SLUG=${PLATFORM//\//-}" >> "$GITHUB_ENV"
+
+      # No docker/setup-qemu-action here on purpose: the runner already IS the
+      # target architecture, so emulation is exactly the cost being removed.
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Labels only -- no tags. Each matrix leg pushes an untagged, by-digest
+      # image; the merge job below is what binds :latest and :<sha> to the
+      # manifest list. If a leg pushed tags itself the two architectures would
+      # race, each overwriting the other with a single-arch image.
+      - uses: docker/metadata-action@v6
+        id: meta
+        with:
+          images: ${{ env.IMAGE }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: py-manim
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          # Scope the cache per platform. A shared scope would have the two
+          # runners continually evicting each other's layers.
+          cache-from: type=gha,scope=py-manim-${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=py-manim-${{ matrix.platform }}
+
+      # The artifact is the digest itself, carried as an empty file named after
+      # it -- the merge job only needs the identifiers, not the images.
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ env.PLATFORM_SLUG }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    # Binds the per-arch digests into one multi-arch manifest list and tags it.
+    # Until this runs, nothing published by the build job is reachable by tag.
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v8
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
 
       - uses: docker/setup-buildx-action@v4
 
@@ -38,12 +119,23 @@ jobs:
             type=raw,value=latest
             type=sha,prefix=
 
-      - uses: docker/build-push-action@v7
-        with:
-          context: py-manim
-          platforms: linux/arm64,linux/amd64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.IMAGE }}@sha256:%s ' *)
+
+      # Fails the run if the manifest is not genuinely multi-arch, so a
+      # half-published image cannot pass silently.
+      - name: Verify both architectures are present
+        run: |
+          docker buildx imagetools inspect "${IMAGE}:latest"
+          for arch in amd64 arm64; do
+            docker buildx imagetools inspect --raw "${IMAGE}:latest" \
+              | jq -e --arg a "$arch" \
+                  '.manifests | map(select(.platform.architecture == $a and .platform.os == "linux")) | length > 0' \
+                  >/dev/null \
+              || { echo "::error::linux/$arch missing from ${IMAGE}:latest manifest"; exit 1; }
+            echo "ok: linux/$arch present"
+          done
