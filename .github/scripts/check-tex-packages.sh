@@ -27,7 +27,10 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
 curl -fsSL --retry 3 "$tlnet/tlpkg/texlive.tlpdb.xz" -o "$tmp/tlpdb.xz"
-xz -dc "$tmp/tlpdb.xz" | sed -n 's/^name //p' | sort -u > "$tmp/available"
+# Decompress as its own command, not at the head of a pipeline, so a corrupt or
+# truncated download stops the script instead of yielding a partial list.
+xz -dc "$tmp/tlpdb.xz" > "$tmp/tlpdb"
+sed -n 's/^name //p' "$tmp/tlpdb" | sort -u > "$tmp/available"
 [ -s "$tmp/available" ] || { fail "read no package names from $tlnet"; exit 1; }
 
 # The same filtering latex-sidecar/Dockerfile applies before `xargs tlmgr install`.

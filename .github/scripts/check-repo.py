@@ -38,6 +38,7 @@ LABEL = re.compile(r"^LABEL devcontainer\.metadata='(.*)'\s*$", re.M)
 # A cache scope is the image's name, then its platform: a ${{ matrix.platform }}
 # expression, or the {0} that format() fills with it.
 SCOPE = re.compile(r"scope=([\w.-]+)-(?:\$\{\{\s*matrix\.platform\s*\}\}|\{0\})")
+SMOKE_TEST = re.compile(r"\$GITHUB_WORKSPACE/([\w.-]+)/smoke-test\.sh")
 
 problems = []
 
@@ -59,8 +60,6 @@ def image_of(workflow_name):
 
 
 def check_workflow(image, path, wf):
-    text = path.read_text()
-
     # A workflow must build on changes to its own file, or a broken workflow
     # merges without ever running.
     for event in ("push", "pull_request"):
@@ -73,33 +72,45 @@ def check_workflow(image, path, wf):
     if env_image != REGISTRY + image:
         problem(path, f"env.IMAGE is {env_image!r}, expected {REGISTRY + image!r}")
 
-    for job_name, job in wf["jobs"].items():
-        for step in job.get("steps") or []:
-            context = (step.get("with") or {}).get("context")
-            if context is not None and context != image:
-                problem(path, f"job {job_name!r} builds context {context!r}, not {image!r}")
+    steps = [(job_name, step) for job_name, job in wf["jobs"].items() for step in job.get("steps") or []]
+    for job_name, step in steps:
+        context = (step.get("with") or {}).get("context")
+        if context is not None and context != image:
+            problem(path, f"job {job_name!r} builds context {context!r}, not {image!r}")
 
-    if f"$GITHUB_WORKSPACE/{image}/smoke-test.sh" not in text:
-        problem(path, f"does not run {image}/smoke-test.sh")
+    # Read the steps' run: scripts, not the file's text. Every workflow names its
+    # own smoke test in a comment, which a text search would accept whatever the
+    # step actually mounts.
+    tested = {name for _, step in steps for name in SMOKE_TEST.findall(step.get("run") or "")}
+    if image not in tested:
+        problem(path, f"no step runs {image}/smoke-test.sh")
+    for other in sorted(tested - {image}):
+        problem(path, f"runs {other}/smoke-test.sh, another image's smoke test")
 
     if image in SINGLE_ARCH:
         return
 
-    # A scope naming another image shares that image's cache: the two evict each
-    # other's layers on every build, and nothing reports it. Compare the name
-    # exactly: py-sci-jupyter-ml's scope also starts with "py-sci-jupyter-".
-    scopes = 0
-    for number, line in enumerate(text.splitlines(), 1):
-        for start in (m.start() for m in re.finditer(r"scope=", line)):
-            scopes += 1
-            match = SCOPE.match(line, start)
-            if not match:
-                problem(path, f"cache scope is not {image}-<platform>", line=number)
-            elif match.group(1) != image:
-                problem(path, f"cache scope names {match.group(1)!r}, not {image!r}, so the two share one cache",
-                        line=number)
-    if not scopes:
-        problem(path, "has no GHA cache scope")
+    # A scope naming another image shares that image's cache, and an entry with no
+    # scope shares BuildKit's default with every other unscoped entry: either way
+    # images evict each other's layers on every build, and nothing reports it.
+    # Check every cache entry, and compare the name exactly: py-sci-jupyter-ml's
+    # scope also starts with "py-sci-jupyter-".
+    for key in ("cache-from", "cache-to"):
+        entries = [(step.get("name") or step.get("uses"), str(step["with"][key] or ""))
+                   for _, step in steps if key in (step.get("with") or {})]
+        if not entries:
+            problem(path, f"has no {key}")
+        for step_name, value in entries:
+            starts = [m.start() for m in re.finditer(r"scope=", value)]
+            if not starts:
+                problem(path, f"{key} of step {step_name!r} has no scope, so it shares BuildKit's default cache")
+            for start in starts:
+                match = SCOPE.match(value, start)
+                if not match:
+                    problem(path, f"{key} of step {step_name!r} has a scope that is not {image}-<platform>")
+                elif match.group(1) != image:
+                    problem(path, f"{key} of step {step_name!r} names {match.group(1)!r}, not {image!r}, "
+                                  "so the two share one cache")
 
     include = (((wf["jobs"].get("build") or {}).get("strategy") or {}).get("matrix") or {}).get("include") or []
     found = {entry.get("platform"): entry.get("runner") for entry in include}
