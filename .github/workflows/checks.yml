@@ -1,0 +1,36 @@
+name: Checks
+
+# Runs on every pull request with no path filter, so it can be made a required
+# status check. A path-filtered workflow cannot be: on a PR outside its paths it
+# never starts, and a required check that never starts blocks the PR forever.
+# Everything here is local to the repository, so nothing outside it can fail a PR.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # Workflow syntax and expressions, plus shellcheck over every run: block.
+      - name: actionlint
+        run: docker run --rm -v "$GITHUB_WORKSPACE":/repo -w /repo rhysd/actionlint:1.7.12 -color
+
+      - name: shellcheck
+        run: |
+          git ls-files -z '*.sh' \
+            | xargs -0 docker run --rm -v "$GITHUB_WORKSPACE":/mnt -w /mnt koalaman/shellcheck:v0.11.0 --format=gcc
+
+      # What no linter can see: cache scopes, the rebuild cascade, smoke tests,
+      # the copied devcontainer label. The script's header explains each check.
+      - name: Repository invariants
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE":/repo -w /repo -e GITHUB_ACTIONS python:3.13-slim \
+            sh -c 'pip install --quiet --root-user-action=ignore "pyyaml>=6,<7" && python .github/scripts/check-repo.py'
