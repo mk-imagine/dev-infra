@@ -35,6 +35,9 @@ LABEL_COPIES = [("py-sci-jupyter-torch-latex", "py-sci-psy")]
 
 FROM_OWN = re.compile(r"^FROM\s+" + re.escape(REGISTRY) + r"([\w.-]+):", re.M)
 LABEL = re.compile(r"^LABEL devcontainer\.metadata='(.*)'\s*$", re.M)
+# A cache scope is the image's name, then its platform: a ${{ matrix.platform }}
+# expression, or the {0} that format() fills with it.
+SCOPE = re.compile(r"scope=([\w.-]+)-(?:\$\{\{\s*matrix\.platform\s*\}\}|\{0\})")
 
 problems = []
 
@@ -83,13 +86,20 @@ def check_workflow(image, path, wf):
         return
 
     # A scope naming another image shares that image's cache: the two evict each
-    # other's layers on every build, and nothing reports it.
-    scopes = re.findall(r"scope=(\S+)", text)
+    # other's layers on every build, and nothing reports it. Compare the name
+    # exactly: py-sci-jupyter-ml's scope also starts with "py-sci-jupyter-".
+    scopes = 0
+    for number, line in enumerate(text.splitlines(), 1):
+        for start in (m.start() for m in re.finditer(r"scope=", line)):
+            scopes += 1
+            match = SCOPE.match(line, start)
+            if not match:
+                problem(path, f"cache scope is not {image}-<platform>", line=number)
+            elif match.group(1) != image:
+                problem(path, f"cache scope names {match.group(1)!r}, not {image!r}, so the two share one cache",
+                        line=number)
     if not scopes:
         problem(path, "has no GHA cache scope")
-    for scope in scopes:
-        if not scope.startswith(image + "-"):
-            problem(path, f"cache scope {scope!r} does not start with {image + '-'!r}")
 
     include = (((wf["jobs"].get("build") or {}).get("strategy") or {}).get("matrix") or {}).get("include") or []
     found = {entry.get("platform"): entry.get("runner") for entry in include}

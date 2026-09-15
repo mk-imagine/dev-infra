@@ -19,6 +19,10 @@ fail() {
   if [ "${GITHUB_ACTIONS:-}" = true ]; then echo "::error file=$list::$*"; else echo "FAIL: $*"; fi
 }
 
+# A pipeline's status is its last command's, so sed failing on a missing list
+# would not stop the script: it would check nothing and report success.
+[ -f "$list" ] && [ -r "$list" ] || { fail "$list is not a readable file"; exit 1; }
+
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
@@ -29,6 +33,7 @@ xz -dc "$tmp/tlpdb.xz" | sed -n 's/^name //p' | sort -u > "$tmp/available"
 # The same filtering latex-sidecar/Dockerfile applies before `xargs tlmgr install`.
 sed 's/#.*//' "$list" | grep -v -E '(\.universal-darwin|^[[:space:]]*$)' \
   | awk '{ for (i = 1; i <= NF; i++) print $i }' | sort -u > "$tmp/wanted"
+[ -s "$tmp/wanted" ] || { fail "read no package names from $list"; exit 1; }
 
 missing=$(comm -23 "$tmp/wanted" "$tmp/available")
 if [ -n "$missing" ]; then

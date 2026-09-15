@@ -3,7 +3,9 @@ name: Checks
 # Runs on every pull request with no path filter, so it can be made a required
 # status check. A path-filtered workflow cannot be: on a PR outside its paths it
 # never starts, and a required check that never starts blocks the PR forever.
-# Everything here is local to the repository, so nothing outside it can fail a PR.
+# Its verdict depends only on the repository, but its tools are fetched at run
+# time -- pinned images from Docker Hub, PyYAML from PyPI. A registry outage
+# fails the run outright rather than changing its verdict; rerun it.
 on:
   pull_request:
   push:
