@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A collection of Docker images published to `ghcr.io/mk-imagine/` and built via GitHub Actions. All images are multi-arch (linux/amd64 + linux/arm64) except `py-torch-cuda`, which is amd64-only. Builds are triggered automatically on push to `main` when files under the relevant image directory change.
+A collection of Docker images published to `ghcr.io/mk-imagine/` and built via GitHub Actions. All images are multi-arch (linux/amd64 + linux/arm64) except `py-torch-cuda`, which is amd64-only. Builds are triggered automatically on push to `main` when files under the relevant image directory change, and every pull request that touches an image builds and smoke-tests it without publishing anything.
 
-There is no application code, no test suite, and no lint step. "Building" means building a Docker image; "testing" means running the built image and checking that the thing it exists to do actually works.
+There is no application code and no lint step. "Building" means building a Docker image; "testing" means running the built image and checking that the thing it exists to do actually works — which is what each image's `smoke-test.sh` does, and CI runs it before anything is published.
 
 ## Image hierarchy
 
@@ -93,27 +93,29 @@ other arch before pushing:
 docker buildx build --platform linux/amd64 -t py-dsml:amd64 py-dsml/   # --load is single-arch only
 ```
 
-Smoke tests that match what each image is for:
+Every image directory has a `smoke-test.sh` that checks what the image exists to
+do rather than that files exist — the sidecar compiles a moloch beamer deck,
+`py-sci-psy` exports a figure through chromium, `py-dsml` executes a notebook.
+CI runs it inside the freshly built image before anything is published. Run it
+the same way against a local build:
 
 ```bash
-# Python chain — imports are the whole contract
-docker run --rm py-dsml:local python -c "import torch, nbclient, seaborn, imagehash; print('ok')"
-
-# R chain — install.R already fails the build on a missing package; this checks load
-docker run --rm ghcr.io/mk-imagine/r-stats-psy:latest Rscript -e 'library(psych); library(emmeans)'
-
-# LaTeX sidecar — populate a scratch volume, then compile from it
-docker run --rm -v latex-test:/opt/TinyTeX latex-sidecar:local
-docker run --rm -v latex-test:/opt/TinyTeX latex-base:local latexmk -v
-docker volume rm latex-test
-
-# plantuml
-docker run --rm -v "$PWD":/work plantuml:local plantuml -version
+img=py-dsml   # any image directory
+docker build -t "${img}:local" "$img/"
+docker run --rm --entrypoint /bin/sh \
+  -e DEVCONTAINER_METADATA="$(docker image inspect "${img}:local" --format '{{json .Config.Labels}}' | jq -r '.["devcontainer.metadata"] // ""')" \
+  -v "$PWD/$img/smoke-test.sh:/smoke-test.sh:ro" \
+  "${img}:local" /smoke-test.sh
 ```
 
-`docker run --rm <img> fc-match DejaVuSans` is the check for `py-dsml`/`py-manim`
-font work — fontconfig substitutes silently, so a missing family surfaces as
-subtly wrong glyph metrics rather than an error.
+Write `${img}:local`, not `$img:local`: zsh reads `:l` as its lowercase modifier
+and silently turns the reference into `py-dsmlocal`.
+
+A smoke test covers its own image's layer, not what it inherits; each ancestor's
+test covers that. Images that carry a `devcontainer.metadata` label check it,
+which is why the label is passed in — it cannot be read from inside a container.
+`py-torch-cuda` checks that torch is a CUDA build, but a runner has no GPU, so
+the Ampere check above stays manual.
 
 ## Adding packages
 
@@ -162,6 +164,7 @@ from" list. Nothing generates or verifies those tables — they drift silently.
 3. Copy `install.R` verbatim from an existing R child image (it's identical across all R images)
 4. Add `.github/workflows/build-r-stats-<name>.yml` (copy an existing child workflow)
 5. Add `build-r-stats-<name>.yml` to the `trigger-children` matrix in `build-r-stats-base.yml`
+6. Add `r-stats-<name>/smoke-test.sh`, checking what the new image adds
 
 ### Python child image
 
@@ -169,6 +172,7 @@ from" list. Nothing generates or verifies those tables — they drift silently.
 2. `FROM` the appropriate parent image
 3. Add `.github/workflows/build-py-sci-<name>.yml`
 4. Add the workflow filename to the `trigger-children` matrix in the parent's workflow
+5. Add `py-sci-<name>/smoke-test.sh`, checking what the new image adds
 
 Step 4/5 is the one that gets forgotten — a new image builds fine on its own push
 and then never rebuilds when its parent changes. Grep the parent's workflow for
@@ -176,13 +180,19 @@ and then never rebuilds when its parent changes. Grep the parent's workflow for
 
 ## CI/CD
 
-Workflows live in `.github/workflows/`, one per image. All are structurally identical except `build-py-torch-cuda.yml` (see the table above). Each triggers on `push` to `main` scoped to its image directory, plus `workflow_dispatch`, and runs:
+Workflows live in `.github/workflows/`, one per image. All are structurally identical except `build-py-torch-cuda.yml` (see the table above). Each triggers on a `push` to `main` or a `pull_request` that touches its image directory or its own workflow file, plus `workflow_dispatch`, and runs:
 
-- **`build`** — a matrix with one job per architecture, each on a runner *of* that architecture (`ubuntu-latest` for amd64, `ubuntu-24.04-arm` for arm64). There is no QEMU anywhere in this repo. Each leg pushes its image **untagged, by digest**, and uploads the digest as an artifact.
+- **`build`** — a matrix with one job per architecture, each on a runner *of* that architecture (`ubuntu-latest` for amd64, `ubuntu-24.04-arm` for arm64). There is no QEMU anywhere in this repo. Each leg builds into the runner's Docker and runs `<image>/smoke-test.sh` inside it; only if that passes does it push the image **untagged, by digest** and upload the digest as an artifact. The push rebuilds from the builder's cache, so the pushed layers are the tested ones.
 - **`merge`** — binds both digests into one manifest list, applies `latest` and the short SHA, then fails the run unless `linux/amd64` and `linux/arm64` are both present in the published manifest.
 - **`trigger-children`** (only where an image has children) — `needs: merge`, so a child starts only after the parent's new tag exists. Hanging it off `build` instead would let the child pull the previous parent.
 
-Tags therefore appear only once every leg has succeeded; a failed leg leaves `latest` where it was.
+Tags therefore appear only once every leg has built and passed its smoke test; a failed leg leaves `latest` where it was.
+
+**Pull requests publish nothing.** Login, every push step, `merge` and `trigger-children` are skipped, so a PR run builds and smoke-tests both architectures and stops. PR runs read `main`'s layer cache but never write to it: a PR's cache entries are invisible to `main` yet count against the same 10GB cap. A newer push to a PR cancels its run in progress; runs on `main` queue instead, because cancelling one could stop it between a leg's push and the tag.
+
+A child's PR build pulls the **published** parent, not a parent changed in the same PR (see *Building and verifying locally*), so a PR that changes both can fail the child's build until the parent is on `main`.
+
+Because each workflow file is in its own `paths:`, a PR or merge that edits many workflows builds every one of those images, and on `main` parents also dispatch their children. The dispatched run queues behind the push-triggered one and finishes last, so each child's final `latest` is built on its new parent.
 
 > **Untagged registry versions are not debris.** Because the legs push by digest,
 > every build leaves untagged versions on the package page — they are the
@@ -197,10 +207,11 @@ When copying a workflow for a new image, these are what must change:
 | Where | Value |
 |---|---|
 | `name:` | `Build <image>` |
-| `on.push.paths` | `"<image>/**"` |
+| `on.push.paths` **and** `on.pull_request.paths` | `"<image>/**"` and `".github/workflows/build-<image>.yml"` |
 | `env.IMAGE` | `ghcr.io/mk-imagine/<image>` |
-| `build` → `context:` | `<image>` |
-| `build` → `cache-from` **and** `cache-to` | `scope=<image>-${{ matrix.platform }}` |
+| `build` → `context:` (both build steps) | `<image>` |
+| `build` → `Smoke test` | `$GITHUB_WORKSPACE/<image>/smoke-test.sh` |
+| `build` → `cache-from` **and** `cache-to` | `scope=<image>-…` (inside a `format()` expression in `cache-to`) |
 | `trigger-children` | present only if the image has children; lists their workflow files |
 
 **The cache scope is the one that fails silently.** Leave another image's name in `scope=` and the two images share one cache and evict each other's layers on every build — no error, just builds that never get faster. This prints nothing when every scope is right:

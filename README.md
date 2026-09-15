@@ -344,11 +344,13 @@ at, not leftovers — deleting them breaks `latest`.
 
 GitHub Actions workflows in `.github/workflows/`, one per image, build
 `linux/amd64` and `linux/arm64` natively — one runner per architecture
-(`ubuntu-latest` and `ubuntu-24.04-arm`), no QEMU — then merge the two into one
-multi-arch manifest and check both architectures are present before tagging.
+(`ubuntu-latest` and `ubuntu-24.04-arm`), no QEMU — run each image's `smoke-test.sh` inside the freshly built image, and only
+then merge the two into one multi-arch manifest and check both architectures are
+present before tagging.
 The exception is `build-py-torch-cuda.yml`: amd64-only, a single job, and no GHA
 layer cache (a multi-GB image would evict the whole repo's 10GB cache budget).
-Each triggers on a push to `main` touching its own directory, and a parent's
+Each triggers on a push to `main` touching its own directory or workflow file —
+and on pull requests, which build and smoke-test without publishing — and a parent's
 `trigger-children` job dispatches its children once the parent's new tag is
 published:
 
@@ -463,6 +465,8 @@ docker build -t py-dsml:local                            py-dsml/
 Local builds are single-arch (host only); CI builds each arch natively on its
 own runner, so a local pass on one architecture does not prove the other. Check the other arch
 with `docker buildx build --platform linux/amd64 …` before pushing.
+Each image's `smoke-test.sh` runs against a local build too; CLAUDE.md has the
+command.
 
 ## Adding a new child image
 
@@ -472,6 +476,7 @@ with `docker buildx build --platform linux/amd64 …` before pushing.
 2. The Dockerfile should `FROM ghcr.io/mk-imagine/r-stats-base:latest`
 3. Add a workflow in `.github/workflows/build-r-stats-<name>.yml`
 4. Add the workflow filename to the `trigger-children` matrix in `build-r-stats-base.yml`
+5. Add `r-stats-<name>/smoke-test.sh`, checking what the new image adds
 
 ### Python ecosystem
 
@@ -479,6 +484,7 @@ with `docker buildx build --platform linux/amd64 …` before pushing.
 2. The Dockerfile should `FROM` the appropriate parent image (e.g., `ghcr.io/mk-imagine/py-sci-base:latest` or `py-sci-jupyter:latest`)
 3. Add a workflow in `.github/workflows/build-py-sci-<name>.yml`
 4. Add the workflow filename to the `trigger-children` matrix in the parent's workflow
+5. Add `py-sci-<name>/smoke-test.sh`, checking what the new image adds
 
 Step 4 is the one that gets missed: a new image builds fine on its own push and
 then silently never rebuilds when its parent changes. Confirm the new filename
