@@ -38,7 +38,8 @@ LABEL = re.compile(r"^LABEL devcontainer\.metadata='(.*)'\s*$", re.M)
 # A cache scope is the image's name, then its platform: a ${{ matrix.platform }}
 # expression, or the {0} that format() fills with it.
 SCOPE = re.compile(r"scope=([\w.-]+)-(?:\$\{\{\s*matrix\.platform\s*\}\}|\{0\})")
-SMOKE_TEST = re.compile(r"\$GITHUB_WORKSPACE/([\w.-]+)/smoke-test\.sh")
+# A docker run mount of an image's smoke test into the container.
+SMOKE_MOUNT = re.compile(r'(?:-v|--volume)[\s=]+"?\$GITHUB_WORKSPACE/([\w.-]+)/smoke-test\.sh:/smoke-test\.sh')
 
 problems = []
 
@@ -78,16 +79,24 @@ def check_workflow(image, path, wf):
         if context is not None and context != image:
             problem(path, f"job {job_name!r} builds context {context!r}, not {image!r}")
 
-    # Read the steps' run: scripts, not the file's text. Every workflow names its
-    # own smoke test in a comment, which a text search would accept whatever the
-    # step actually mounts.
-    tested = {name for _, step in steps for name in SMOKE_TEST.findall(step.get("run") or "")}
+    # Match the -v mount in the steps' run: scripts, skipping shell comment lines,
+    # not the file's text: a comment or an echo can name a test no step mounts.
+    tested = {name for _, step in steps
+              for line in (step.get("run") or "").splitlines() if not line.lstrip().startswith("#")
+              for name in SMOKE_MOUNT.findall(line)}
     if image not in tested:
-        problem(path, f"no step runs {image}/smoke-test.sh")
+        problem(path, f"no step mounts {image}/smoke-test.sh into the image")
     for other in sorted(tested - {image}):
-        problem(path, f"runs {other}/smoke-test.sh, another image's smoke test")
+        problem(path, f"mounts {other}/smoke-test.sh, another image's smoke test")
+
+    caches = {key: [(step.get("name") or step.get("uses"), str(step["with"][key] or ""))
+                    for _, step in steps if key in (step.get("with") or {})]
+              for key in ("cache-from", "cache-to")}
 
     if image in SINGLE_ARCH:
+        for key, entries in caches.items():
+            for step_name, _ in entries:
+                problem(path, f"{key} of step {step_name!r}: {image} deliberately builds with no GHA cache")
         return
 
     # A scope naming another image shares that image's cache, and an entry with no
@@ -95,9 +104,7 @@ def check_workflow(image, path, wf):
     # images evict each other's layers on every build, and nothing reports it.
     # Check every cache entry, and compare the name exactly: py-sci-jupyter-ml's
     # scope also starts with "py-sci-jupyter-".
-    for key in ("cache-from", "cache-to"):
-        entries = [(step.get("name") or step.get("uses"), str(step["with"][key] or ""))
-                   for _, step in steps if key in (step.get("with") or {})]
+    for key, entries in caches.items():
         if not entries:
             problem(path, f"has no {key}")
         for step_name, value in entries:
@@ -126,8 +133,9 @@ def check_cascade(images, workflows, parsed):
             continue
         # Hanging children off the build job lets a child start before the
         # parent's new tag exists, so it builds on the previous parent.
-        if job.get("needs") != "merge":
-            problem(workflows[image], f"trigger-children needs {job.get('needs')!r}; it must need 'merge'")
+        needs = job.get("needs")  # one job id, or a list of them
+        if "merge" not in ([needs] if isinstance(needs, str) else needs or []):
+            problem(workflows[image], f"trigger-children needs {needs!r}; it must need 'merge'")
         children[image] = set(job["strategy"]["matrix"]["workflow"])
 
     for image in images:
