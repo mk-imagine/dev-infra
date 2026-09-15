@@ -5,17 +5,30 @@ on:
     branches: [main]
     paths:
       - "py-dsml/**"
+      # Changing this file changes how the image is built, so it has to build
+      # too. Otherwise a broken workflow merges without ever running.
+      - ".github/workflows/build-py-dsml.yml"
+  # Pull requests build and smoke-test both architectures but publish nothing:
+  # the login, every push step, and the merge job are skipped for this event.
+  pull_request:
+    paths:
+      - "py-dsml/**"
+      - ".github/workflows/build-py-dsml.yml"
   workflow_dispatch:
 
+# A newer push to the same pull request replaces a run still in progress. Runs
+# on main queue instead of cancelling: a cancelled run could stop after a leg
+# has pushed its digest but before the merge job has tagged anything.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   IMAGE: ghcr.io/mk-imagine/py-dsml
 
 jobs:
   build:
-    # One runner per architecture, each building its own native platform. This
-    # replaces a single amd64 runner that built linux/arm64 under QEMU, where
-    # every instruction in the arm64 half ran emulated.
+    # One runner per architecture, each building its own platform natively.
     strategy:
       fail-fast: false
       matrix:
@@ -38,47 +51,79 @@ jobs:
           PLATFORM: ${{ matrix.platform }}
         run: echo "PLATFORM_SLUG=${PLATFORM//\//-}" >> "$GITHUB_ENV"
 
-      # No docker/setup-qemu-action here on purpose: the runner already IS the
-      # target architecture, so emulation is exactly the cost being removed.
       - uses: docker/setup-buildx-action@v4
 
       - uses: docker/login-action@v4
+        if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Labels only -- no tags. Each matrix leg pushes an untagged, by-digest
-      # image; the merge job below is what binds :latest and :<sha> to the
-      # manifest list. If a leg pushed tags itself the two architectures would
-      # race, each overwriting the other with a single-arch image.
+      # Labels only -- no tags. Each leg pushes an untagged, by-digest image and
+      # the merge job binds :latest and :<sha> to the manifest list. If a leg
+      # tagged its own push, the two architectures would race, each overwriting
+      # the other with a single-arch image.
       - uses: docker/metadata-action@v6
         id: meta
         with:
           images: ${{ env.IMAGE }}
 
-      - name: Build and push by digest
-        id: build
+      # Build into the runner's local Docker first, so the image can be run
+      # before anything is published.
+      - name: Build for smoke test
+        uses: docker/build-push-action@v7
+        with:
+          context: py-dsml
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          load: true
+          tags: smoke-test:local
+          # Scoped per image and platform, so neither the two legs nor two
+          # images evict each other's layers.
+          cache-from: type=gha,scope=py-dsml-${{ matrix.platform }}
+          # Pull requests read main's cache but never write to it. A PR's
+          # entries are invisible to main yet count against the same 10GB
+          # repository cap, where they would evict main's layers.
+          cache-to: ${{ github.event_name != 'pull_request' && format('type=gha,mode=max,scope=py-dsml-{0}', matrix.platform) || '' }}
+
+      # Runs <image>/smoke-test.sh inside the image. The devcontainer.metadata
+      # label is passed in as an environment variable, because a label cannot be
+      # read from inside the container; it is empty for images without one.
+      - name: Smoke test
+        run: |
+          metadata=$(docker image inspect smoke-test:local --format '{{json .Config.Labels}}' \
+            | jq -r '.["devcontainer.metadata"] // ""')
+          docker run --rm --entrypoint /bin/sh \
+            -e DEVCONTAINER_METADATA="$metadata" \
+            -v "$GITHUB_WORKSPACE/py-dsml/smoke-test.sh:/smoke-test.sh:ro" \
+            smoke-test:local /smoke-test.sh
+
+      # Rebuilds from this runner's builder cache, so every layer pushed is a
+      # layer that was just tested; the step only exports and uploads.
+      - name: Push by digest
+        id: push
+        if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v7
         with:
           context: py-dsml
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
-          # Scope the cache per platform. A shared scope would have the two
-          # runners continually evicting each other's layers.
           cache-from: type=gha,scope=py-dsml-${{ matrix.platform }}
-          cache-to: type=gha,mode=max,scope=py-dsml-${{ matrix.platform }}
 
       # The artifact is the digest itself, carried as an empty file named after
       # it -- the merge job only needs the identifiers, not the images.
       - name: Export digest
+        if: github.event_name != 'pull_request'
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
         run: |
           mkdir -p /tmp/digests
-          digest="${{ steps.build.outputs.digest }}"
-          touch "/tmp/digests/${digest#sha256:}"
+          touch "/tmp/digests/${DIGEST#sha256:}"
 
       - name: Upload digest
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v7
         with:
           name: digests-${{ env.PLATFORM_SLUG }}
@@ -89,6 +134,7 @@ jobs:
   merge:
     # Binds the per-arch digests into one multi-arch manifest list and tags it.
     # Until this runs, nothing published by the build job is reachable by tag.
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -121,10 +167,17 @@ jobs:
 
       - name: Create manifest list and push
         working-directory: /tmp/digests
+        # Built as an array so every tag and digest stays one argument without
+        # relying on unquoted word splitting.
         run: |
-          docker buildx imagetools create \
-            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ env.IMAGE }}@sha256:%s ' *)
+          args=()
+          while IFS= read -r tag; do
+            args+=(-t "$tag")
+          done < <(jq -r '.tags[]' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          for digest in *; do
+            args+=("${IMAGE}@sha256:${digest}")
+          done
+          docker buildx imagetools create "${args[@]}"
 
       # Fails the run if the manifest is not genuinely multi-arch, so a
       # half-published image cannot pass silently.

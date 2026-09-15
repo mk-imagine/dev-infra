@@ -5,7 +5,22 @@ on:
     branches: [main]
     paths:
       - "py-torch-cuda/**"
+      # Changing this file changes how the image is built, so it has to build
+      # too. Otherwise a broken workflow merges without ever running.
+      - ".github/workflows/build-py-torch-cuda.yml"
+  # Pull requests build and smoke-test the image but publish nothing: the login
+  # and the push are skipped for this event.
+  pull_request:
+    paths:
+      - "py-torch-cuda/**"
+      - ".github/workflows/build-py-torch-cuda.yml"
   workflow_dispatch:
+
+# A newer push to the same pull request replaces a run still in progress. Runs
+# on main queue instead of cancelling, so a push is never cut off mid-upload.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   IMAGE: ghcr.io/mk-imagine/py-torch-cuda
@@ -27,6 +42,7 @@ jobs:
       - uses: docker/setup-buildx-action@v4
 
       - uses: docker/login-action@v4
+        if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -44,9 +60,37 @@ jobs:
       # this repo uses. GitHub caps a repository at 10GB of Actions cache and
       # evicts LRU across the whole repo -- and this image is 8.07GB, so caching
       # it would consume nearly the entire budget and evict the layer cache for
-      # every other image here. A measured cold build is 3m50s (78s pip,
-      # 124s layer export), which is cheap enough to prefer over that.
-      - uses: docker/build-push-action@v7
+      # every other image here. A measured cold build is 3m50s (78s pip, 124s
+      # layer export), which is cheap enough to prefer over that.
+      #
+      # Build into the runner's local Docker first, so the image can be run
+      # before anything is published.
+      - name: Build for smoke test
+        uses: docker/build-push-action@v7
+        with:
+          context: py-torch-cuda
+          platforms: linux/amd64
+          labels: ${{ steps.meta.outputs.labels }}
+          load: true
+          tags: smoke-test:local
+
+      # Runs py-torch-cuda/smoke-test.sh inside the image. The devcontainer.metadata
+      # label is passed in as an environment variable, because a label cannot be
+      # read from inside the container; it is empty for images without one.
+      - name: Smoke test
+        run: |
+          metadata=$(docker image inspect smoke-test:local --format '{{json .Config.Labels}}' \
+            | jq -r '.["devcontainer.metadata"] // ""')
+          docker run --rm --entrypoint /bin/sh \
+            -e DEVCONTAINER_METADATA="$metadata" \
+            -v "$GITHUB_WORKSPACE/py-torch-cuda/smoke-test.sh:/smoke-test.sh:ro" \
+            smoke-test:local /smoke-test.sh
+
+      # Rebuilds from this runner's builder cache, so the pushed layers are the
+      # ones just tested; the step only exports and uploads.
+      - name: Push
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v7
         with:
           context: py-torch-cuda
           platforms: linux/amd64
