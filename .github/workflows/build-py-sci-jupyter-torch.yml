@@ -192,3 +192,27 @@ jobs:
               || { echo "::error::linux/$arch missing from ${IMAGE}:latest manifest"; exit 1; }
             echo "ok: linux/$arch present"
           done
+
+  trigger-children:
+    # Starts each child only once this image's new tag exists. Never runs for a
+    # pull request, which publishes nothing for a child to build on.
+    if: github.event_name != 'pull_request'
+    needs: merge
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    strategy:
+      matrix:
+        workflow:
+          - build-py-sci-jupyter-torch-latex.yml
+    steps:
+      - uses: actions/github-script@v8
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: '${{ matrix.workflow }}',
+              ref: 'main'
+            });

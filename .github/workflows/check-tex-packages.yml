@@ -1,0 +1,36 @@
+name: Check TeX Live package names
+
+on:
+  pull_request:
+    paths:
+      - "latex-sidecar/latex_packages.txt"
+      - ".github/scripts/check-tex-packages.sh"
+      - ".github/workflows/check-tex-packages.yml"
+  push:
+    branches: [main]
+    paths:
+      - "latex-sidecar/latex_packages.txt"
+      - ".github/scripts/check-tex-packages.sh"
+      - ".github/workflows/check-tex-packages.yml"
+  # TeX Live changes with no commit here: l3backend was folded into l3kernel
+  # upstream between two sidecar builds. A weekly run finds that before the next
+  # build does. GitHub emails a scheduled run's failure to whoever last edited
+  # this cron line.
+  schedule:
+    - cron: "23 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tex-packages:
+    # Separate from Checks on purpose: this reads a remote package database, so
+    # a mirror outage here would otherwise fail every pull request, including
+    # ones that never touch LaTeX.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Every package in latex_packages.txt exists in TeX Live
+        run: sh .github/scripts/check-tex-packages.sh

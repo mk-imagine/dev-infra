@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A collection of Docker images published to `ghcr.io/mk-imagine/` and built via GitHub Actions. All images are multi-arch (linux/amd64 + linux/arm64) except `py-torch-cuda`, which is amd64-only. Builds are triggered automatically on push to `main` when files under the relevant image directory change, and every pull request that touches an image builds and smoke-tests it without publishing anything.
 
-There is no application code and no lint step. "Building" means building a Docker image; "testing" means running the built image and checking that the thing it exists to do actually works — which is what each image's `smoke-test.sh` does, and CI runs it before anything is published.
+There is no application code. "Building" means building a Docker image; "testing" means running the built image and checking that the thing it exists to do actually works — which is what each image's `smoke-test.sh` does, and CI runs it before anything is published. Mistakes that no build would report are the job of the **Checks** workflow (see *CI/CD*).
 
 ## Image hierarchy
 
@@ -40,7 +40,7 @@ anything else in the repo.
 consumer is script-driven: the Jupyter layer is the part it does not want, not
 the torch layer. It copies the LaTeX `devcontainer.metadata` LABEL from
 `py-sci-jupyter-torch-latex` rather than inheriting it, since that image sits on
-the other branch of the tree — **keep the two copies in sync.**
+the other branch of the tree — **keep the two copies in sync.** The Checks workflow fails a pull request if they differ.
 
 `py-torch-cuda` is a separate root rather than a child of `py-sci-base`, and
 **it is the one image in this repo that breaks the shared conventions.** Three
@@ -62,12 +62,8 @@ Do not "fix" these to match the other images.
 
 Child images are rebuilt automatically via `workflow_dispatch` cascade from the parent workflow's `trigger-children` job.
 
-> **Known cascade gap:** `build-py-sci-jupyter-torch.yml` has no `trigger-children`
-> job, so the chain breaks between `py-sci-jupyter-torch` and
-> `py-sci-jupyter-torch-latex` — the LaTeX image and everything below it are not
-> rebuilt when the torch image changes. Rebuild manually
-> (`gh workflow run build-py-sci-jupyter-torch-latex.yml`, which does cascade to
-> `py-dsml`) until the matrix is wired.
+The Checks workflow fails any pull request that leaves a child out of its
+parent's `trigger-children` matrix, so the cascade cannot quietly break.
 
 ## Building and verifying locally
 
@@ -138,7 +134,8 @@ package per line.
 > support comments**. The Dockerfiles pass it straight through as
 > `$(cat /tmp/apt-packages.txt)` with no stripping, so a `#` and its trailing text
 > would be handed to `apt-get install` as package names and fail the build. Put
-> per-package rationale in the Dockerfile instead.
+> per-package rationale in the Dockerfile instead. The Checks workflow rejects a
+> `#` in any `apt-packages.txt`.
 
 > Two images opt out of the `apt-packages.txt` convention and inline their apt
 > list in the Dockerfile: `latex-sidecar` and `latex-base`. Edit the `RUN
@@ -175,8 +172,8 @@ from" list. Nothing generates or verifies those tables — they drift silently.
 5. Add `py-sci-<name>/smoke-test.sh`, checking what the new image adds
 
 Step 4/5 is the one that gets forgotten — a new image builds fine on its own push
-and then never rebuilds when its parent changes. Grep the parent's workflow for
-`trigger-children` and confirm the new filename is in the matrix.
+and then never rebuilds when its parent changes. The Checks workflow now fails any
+pull request that misses it.
 
 ## CI/CD
 
@@ -214,16 +211,33 @@ When copying a workflow for a new image, these are what must change:
 | `build` → `cache-from` **and** `cache-to` | `scope=<image>-…` (inside a `format()` expression in `cache-to`) |
 | `trigger-children` | present only if the image has children; lists their workflow files |
 
-**The cache scope is the one that fails silently.** Leave another image's name in `scope=` and the two images share one cache and evict each other's layers on every build — no error, just builds that never get faster. This prints nothing when every scope is right:
-
-```bash
-for f in .github/workflows/build-*.yml; do
-  img=$(basename "$f" .yml); img=${img#build-}
-  grep 'scope=' "$f" | grep -v "scope=${img}-" && echo "^ wrong cache scope in $f"
-done
-```
+**The cache scope is the one that fails silently.** Leave another image's name in `scope=` and the two images share one cache and evict each other's layers on every build — no error, just builds that never get faster. The Checks workflow rejects it.
 
 Manual rebuild: `gh workflow run build-<name>.yml`, or the GitHub Actions UI "Run workflow" button.
+
+### Checks
+
+`.github/workflows/checks.yml` runs on every pull request and every push to `main`, with no path filter, in under a minute:
+
+| Step | Catches |
+|---|---|
+| `actionlint` | workflow syntax and expression errors, and shellcheck findings inside `run:` blocks |
+| `shellcheck` | problems in every tracked `*.sh` |
+| `.github/scripts/check-repo.py` | a cache entry with no scope, or a scope naming another image or missing its platform; any cache on `py-torch-cuda`; a build matrix missing an architecture or its native runner; a child missing from its parent's `trigger-children`, or a listed child not built `FROM` that parent; `trigger-children` needing `build` instead of `merge`; a workflow whose `paths:` omit its own directory or file, or that runs another image's smoke test; an image without `smoke-test.sh`; the two copies of the LaTeX `devcontainer.metadata` label drifting apart; a `#` in any `apt-packages.txt` |
+
+Having no path filter is what lets it be a **required status check**. The per-image build workflows cannot be: on a pull request outside their paths they never start, and a required check that never starts blocks the PR forever. Its verdict depends only on the repository, but its tools are fetched at run time — pinned images from Docker Hub, PyYAML from PyPI — so a registry outage fails the run outright rather than changing its verdict; rerun it.
+
+`.github/workflows/check-tex-packages.yml` confirms every name in `latex-sidecar/latex_packages.txt` exists in the TeX Live repository the sidecar installs from, by reading that repository's package database directly — `tlmgr info` answers from a local copy and can report a removed package as present. It runs when the list changes and weekly, because TeX Live changes with no commit here: `l3backend` was folded into `l3kernel` between two sidecar builds. It stays out of Checks so a mirror outage cannot block unrelated pull requests. GitHub emails a scheduled run's failure to whoever last edited its `cron:` line.
+
+The same checks, locally from the repository root, with nothing installed on the host:
+
+```bash
+docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:1.7.12
+git ls-files -z '*.sh' | xargs -0 docker run --rm -v "$PWD":/mnt -w /mnt koalaman/shellcheck:v0.11.0
+docker run --rm -v "$PWD":/repo -w /repo python:3.13-slim \
+  sh -c 'pip install -q --root-user-action=ignore "pyyaml>=6,<7" && python .github/scripts/check-repo.py'
+sh .github/scripts/check-tex-packages.sh
+```
 
 ## LaTeX sidecar design
 

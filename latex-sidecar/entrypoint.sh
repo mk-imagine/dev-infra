@@ -14,7 +14,15 @@ if [ ! -d "$TARGET_DIR/bin" ]; then
     
     # Determine the architecture-specific binary directory
     # TinyTeX uses paths like bin/x86_64-linux or bin/aarch64-linux
-    ARCH_DIR=$(ls "$TARGET_DIR/bin" | head -n 1)
+    # The first directory under bin/, e.g. aarch64-linux or x86_64-linux.
+    # A glob rather than parsing `ls`; the loop leaves ARCH_DIR empty if bin/
+    # has no subdirectory, which the check below reports.
+    ARCH_DIR=""
+    for dir in "$TARGET_DIR"/bin/*/; do
+        [ -d "$dir" ] || continue
+        ARCH_DIR=$(basename "$dir")
+        break
+    done
     
     if [ -n "$ARCH_DIR" ]; then
         echo "Info: Creating 'current' symlink for architecture: $ARCH_DIR"
