@@ -1,6 +1,6 @@
 # dev-infra
 
-Shared development infrastructure published to GHCR. All images are multi-arch (arm64 + amd64) and built via GitHub Actions.
+Shared development infrastructure published to GHCR. All images are multi-arch (arm64 + amd64) except `py-torch-cuda`, which is amd64-only, and all are built via GitHub Actions.
 
 ## Images
 
@@ -336,14 +336,21 @@ docker pull ghcr.io/mk-imagine/r-stats-psy:latest
 
 Each image is tagged with `latest` and the short commit SHA for rollback.
 
+A package's version list on GitHub also shows **untagged** versions after every
+build. Those are the per-architecture manifests that the multi-arch tags point
+at, not leftovers — deleting them breaks `latest`.
+
 ## CI/CD
 
-GitHub Actions workflows in `.github/workflows/`, one per image, build and push
-`linux/arm64,linux/amd64` under QEMU — except `build-py-torch-cuda.yml`, which is
-amd64-only and builds natively, and which also omits the GHA layer cache the
-others use (a multi-GB image would evict the whole repo's 10GB cache budget).
+GitHub Actions workflows in `.github/workflows/`, one per image, build
+`linux/amd64` and `linux/arm64` natively — one runner per architecture
+(`ubuntu-latest` and `ubuntu-24.04-arm`), no QEMU — then merge the two into one
+multi-arch manifest and check both architectures are present before tagging.
+The exception is `build-py-torch-cuda.yml`: amd64-only, a single job, and no GHA
+layer cache (a multi-GB image would evict the whole repo's 10GB cache budget).
 Each triggers on a push to `main` touching its own directory, and a parent's
-`trigger-children` job dispatches its children on completion:
+`trigger-children` job dispatches its children once the parent's new tag is
+published:
 
 | Workflow | Path trigger | Cascades to |
 |----------|--------------|-------------|
@@ -352,13 +359,14 @@ Each triggers on a push to `main` touching its own directory, and a parent's
 | `build-plantuml.yml` | `plantuml/` | — (standalone) |
 | `build-r-stats-base.yml` | `r-stats-base/` | `build-r-stats-psy.yml` |
 | `build-r-stats-psy.yml` | `r-stats-psy/` | — |
-| `build-py-sci-base.yml` | `py-sci-base/` | `build-py-sci-jupyter.yml` |
+| `build-py-sci-base.yml` | `py-sci-base/` | `build-py-sci-jupyter.yml`, `build-py-sci-psy.yml` |
 | `build-py-sci-jupyter.yml` | `py-sci-jupyter/` | `build-py-sci-jupyter-ml.yml`, `build-py-manim.yml` |
 | `build-py-manim.yml` | `py-manim/` | — |
 | `build-py-sci-jupyter-ml.yml` | `py-sci-jupyter-ml/` | `build-py-sci-jupyter-torch.yml` |
 | `build-py-sci-jupyter-torch.yml` | `py-sci-jupyter-torch/` | **— (gap, see below)** |
 | `build-py-sci-jupyter-torch-latex.yml` | `py-sci-jupyter-torch-latex/` | `build-py-dsml.yml` |
 | `build-py-dsml.yml` | `py-dsml/` | — |
+| `build-py-sci-psy.yml` | `py-sci-psy/` | — |
 | `build-py-torch-cuda.yml` | `py-torch-cuda/` | — (standalone) |
 
 > **Known cascade gap.** `build-py-sci-jupyter-torch.yml` has no
@@ -452,8 +460,8 @@ docker build -t ghcr.io/mk-imagine/py-sci-jupyter:latest py-sci-jupyter/
 docker build -t py-dsml:local                            py-dsml/
 ```
 
-Local builds are single-arch (host only); CI builds both arches under QEMU, so a
-local pass on one architecture does not prove the other. Check the other arch
+Local builds are single-arch (host only); CI builds each arch natively on its
+own runner, so a local pass on one architecture does not prove the other. Check the other arch
 with `docker buildx build --platform linux/amd64 …` before pushing.
 
 ## Adding a new child image
