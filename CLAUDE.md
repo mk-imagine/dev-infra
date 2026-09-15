@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A collection of Docker images published to `ghcr.io/mk-imagine/` and built via GitHub Actions. All images are multi-arch (linux/amd64 + linux/arm64). Builds are triggered automatically on push to `main` when files under the relevant image directory change.
+A collection of Docker images published to `ghcr.io/mk-imagine/` and built via GitHub Actions. All images are multi-arch (linux/amd64 + linux/arm64) except `py-torch-cuda`, which is amd64-only. Builds are triggered automatically on push to `main` when files under the relevant image directory change.
 
 There is no application code, no test suite, and no lint step. "Building" means building a Docker image; "testing" means running the built image and checking that the thing it exists to do actually works.
 
@@ -48,7 +48,7 @@ deviations, all deliberate and all documented in its Dockerfile and workflow:
 
 | Convention | `py-torch-cuda` | Why |
 |---|---|---|
-| `platforms: linux/arm64,linux/amd64` | **amd64 only** | PyTorch publishes CUDA wheels for x86_64 alone. Dropping arm64 also means it builds natively instead of under QEMU. |
+| One runner per architecture, merged into a multi-arch manifest | **amd64 only, single job** | PyTorch publishes CUDA wheels for x86_64 alone. With one architecture there is nothing to merge, so the build job tags and pushes directly — no `merge` job and no architecture check. |
 | `cache-from`/`cache-to: type=gha` | **no GHA cache** | The image is 8.07GB against GitHub's 10GB per-repo cache cap. In practice this repo's caches are always empty anyway — entries expire after 7 days unused and builds here are ~monthly — so the cache would never be warm, and writing 8GB of it costs upload time every build. |
 | `--extra-index-url` (as in `py-sci-jupyter-torch`) | **`--index-url`** | The "extra" form leaves PyPI in the resolver path, which is how a GPU image silently gets CPU-only torch. Replacing the index makes a bad index fail loudly. |
 
@@ -85,9 +85,9 @@ docker build -t ghcr.io/mk-imagine/py-sci-jupyter:latest   py-sci-jupyter/
 docker build -t py-dsml:local                              py-dsml/
 ```
 
-Local builds are single-arch (host only). CI builds both arches under QEMU, so an
-arm64-only local pass does not prove the amd64 build. To check the other arch
-before pushing:
+Local builds are single-arch (host only). CI builds each arch natively on its own
+runner, so an arm64-only local pass does not prove the amd64 build. To check the
+other arch before pushing:
 
 ```bash
 docker buildx build --platform linux/amd64 -t py-dsml:amd64 py-dsml/   # --load is single-arch only
@@ -176,14 +176,41 @@ and then never rebuilds when its parent changes. Grep the parent's workflow for
 
 ## CI/CD
 
-Workflows live in `.github/workflows/`, one per image. All are structurally identical except `build-py-torch-cuda.yml` (see the table above). Each:
-- Triggers on `push` to `main` scoped to its image directory, plus `workflow_dispatch`
-- Builds `linux/arm64,linux/amd64` via QEMU and pushes with tags `latest` and short SHA
-- Uses GitHub Actions cache (`type=gha`, `mode=max`) for layer caching
+Workflows live in `.github/workflows/`, one per image. All are structurally identical except `build-py-torch-cuda.yml` (see the table above). Each triggers on `push` to `main` scoped to its image directory, plus `workflow_dispatch`, and runs:
 
-The only per-workflow variables are `env.IMAGE`, the `paths:` filter, the build
-`context:`, and the presence/contents of `trigger-children`. When copying a
-workflow for a new image, those four are what must change.
+- **`build`** — a matrix with one job per architecture, each on a runner *of* that architecture (`ubuntu-latest` for amd64, `ubuntu-24.04-arm` for arm64). There is no QEMU anywhere in this repo. Each leg pushes its image **untagged, by digest**, and uploads the digest as an artifact.
+- **`merge`** — binds both digests into one manifest list, applies `latest` and the short SHA, then fails the run unless `linux/amd64` and `linux/arm64` are both present in the published manifest.
+- **`trigger-children`** (only where an image has children) — `needs: merge`, so a child starts only after the parent's new tag exists. Hanging it off `build` instead would let the child pull the previous parent.
+
+Tags therefore appear only once every leg has succeeded; a failed leg leaves `latest` where it was.
+
+> **Untagged registry versions are not debris.** Because the legs push by digest,
+> every build leaves untagged versions on the package page — they are the
+> per-architecture manifests that `latest` points at. **Never run a generic
+> "delete untagged versions" cleanup**: it deletes the images behind every
+> multi-arch tag.
+
+Layer caching is GitHub Actions cache (`type=gha`, `mode=max`), scoped per image *and* per platform so the two legs do not evict each other.
+
+When copying a workflow for a new image, these are what must change:
+
+| Where | Value |
+|---|---|
+| `name:` | `Build <image>` |
+| `on.push.paths` | `"<image>/**"` |
+| `env.IMAGE` | `ghcr.io/mk-imagine/<image>` |
+| `build` → `context:` | `<image>` |
+| `build` → `cache-from` **and** `cache-to` | `scope=<image>-${{ matrix.platform }}` |
+| `trigger-children` | present only if the image has children; lists their workflow files |
+
+**The cache scope is the one that fails silently.** Leave another image's name in `scope=` and the two images share one cache and evict each other's layers on every build — no error, just builds that never get faster. This prints nothing when every scope is right:
+
+```bash
+for f in .github/workflows/build-*.yml; do
+  img=$(basename "$f" .yml); img=${img#build-}
+  grep 'scope=' "$f" | grep -v "scope=${img}-" && echo "^ wrong cache scope in $f"
+done
+```
 
 Manual rebuild: `gh workflow run build-<name>.yml`, or the GitHub Actions UI "Run workflow" button.
 
