@@ -365,21 +365,22 @@ published:
 | `build-py-sci-jupyter.yml` | `py-sci-jupyter/` | `build-py-sci-jupyter-ml.yml`, `build-py-manim.yml` |
 | `build-py-manim.yml` | `py-manim/` | — |
 | `build-py-sci-jupyter-ml.yml` | `py-sci-jupyter-ml/` | `build-py-sci-jupyter-torch.yml` |
-| `build-py-sci-jupyter-torch.yml` | `py-sci-jupyter-torch/` | **— (gap, see below)** |
+| `build-py-sci-jupyter-torch.yml` | `py-sci-jupyter-torch/` | `build-py-sci-jupyter-torch-latex.yml` |
 | `build-py-sci-jupyter-torch-latex.yml` | `py-sci-jupyter-torch-latex/` | `build-py-dsml.yml` |
 | `build-py-dsml.yml` | `py-dsml/` | — |
 | `build-py-sci-psy.yml` | `py-sci-psy/` | — |
 | `build-py-torch-cuda.yml` | `py-torch-cuda/` | — (standalone) |
 
-> **Known cascade gap.** `build-py-sci-jupyter-torch.yml` has no
-> `trigger-children` job, so the chain breaks between `py-sci-jupyter-torch` and
-> `py-sci-jupyter-torch-latex`: the LaTeX image and `py-dsml` below it are *not*
-> rebuilt when the torch image changes. Until the matrix is wired, rebuild by
-> hand with `gh workflow run build-py-sci-jupyter-torch-latex.yml`, which does
-> cascade on to `py-dsml`.
-
 All workflows also support `workflow_dispatch` for manual rebuilds
 (`gh workflow run <name>.yml`, or the Actions UI "Run workflow" button).
+
+Two more workflows check the repository instead of building an image.
+**Checks** (`checks.yml`) runs on every pull request: `actionlint`, `shellcheck`,
+and `.github/scripts/check-repo.py`, which catches what no build reports — two
+images sharing a cache scope, a child missing from its parent's
+`trigger-children`, a missing smoke test, the copied LaTeX label drifting.
+**Check TeX Live package names** (`check-tex-packages.yml`) confirms every entry
+in `latex_packages.txt` still exists upstream, when the list changes and weekly.
 
 ## LaTeX Sidecar
 
