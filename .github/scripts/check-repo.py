@@ -28,6 +28,7 @@ WORKFLOWS = pathlib.Path(".github/workflows")
 # the py-torch-cuda table in CLAUDE.md.
 SINGLE_ARCH = {"py-torch-cuda"}
 RUNNERS = {"linux/amd64": "ubuntu-latest", "linux/arm64": "ubuntu-24.04-arm"}
+MATRIX_RUNNER = re.compile(r"^\$\{\{\s*matrix\.runner\s*\}\}$")
 
 # py-sci-psy copies py-sci-jupyter-torch-latex's label rather than inheriting
 # it, and CLAUDE.md requires the two copies to stay identical.
@@ -123,6 +124,12 @@ def check_workflow(image, path, wf):
     found = {entry.get("platform"): entry.get("runner") for entry in include}
     if found != RUNNERS:
         problem(path, f"build matrix is {found}, expected {RUNNERS}: each architecture on its own native runner")
+
+    # The matrix names a runner per architecture; runs-on is what uses it. Pinned
+    # to one runner, every leg builds on that machine whatever the matrix says.
+    runs_on = (wf["jobs"].get("build") or {}).get("runs-on")
+    if not MATRIX_RUNNER.match(str(runs_on or "").strip()):
+        problem(path, f"build runs-on is {runs_on!r}, not the matrix runner, so a leg can build on the wrong architecture")
 
 
 def check_cascade(images, workflows, parsed):
