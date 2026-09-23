@@ -29,6 +29,44 @@ esac
 
 python3 -m pytest --version >/dev/null 2>&1 || fail "pytest does not run"
 
+# COLAB PARITY. This image is the CSC 408 execution gate and those notebooks run
+# for students only in Google Colab, so the scientific stack is pinned to match
+# Colab exactly (see requirements.txt for the full reasoning and the measured
+# consequences of drift).
+#
+# The pins live in requirements.txt, but requirements.txt is not mounted when
+# this test runs -- so the expected versions are repeated here ON PURPOSE. That
+# duplication IS the check: it catches an ancestor image, a transitive
+# dependency, or a resolver change quietly winning over the pin, which is
+# exactly how the stack drifted before anyone pinned anything. A publish that
+# does not match Colab is worse than no publish.
+#
+# UPDATING: re-probe Colab, then change BOTH this list and requirements.txt.
+# Never bump one to make CI pass.
+python3 - <<'PY_PARITY' || fail "the scientific stack does not match Colab"
+import sys
+from importlib.metadata import version
+EXPECTED = {
+    "pandas": "2.2.3", "numpy": "2.1.3", "scikit-learn": "1.6.1",
+    "scipy": "1.16.3", "statsmodels": "0.15.0", "joblib": "1.6.0",
+    "threadpoolctl": "3.6.0", "openpyxl": "3.1.5", "dill": "0.4.1",
+    "matplotlib": "3.10.0", "seaborn": "0.13.2",
+}
+bad = []
+for pkg, want in EXPECTED.items():
+    try:
+        got = version(pkg)
+    except Exception as e:
+        bad.append(f"  {pkg}: NOT INSTALLED ({type(e).__name__})")
+        continue
+    if got != want:
+        bad.append(f"  {pkg}: got {got}, Colab has {want}")
+if bad:
+    print("Colab parity broken:", *bad, sep="\n", file=sys.stderr)
+    sys.exit(1)
+print(f"ok: Colab parity ({len(EXPECTED)} packages)")
+PY_PARITY
+
 out=$(python3 - <<'PY'
 import os, tempfile
 import matplotlib
