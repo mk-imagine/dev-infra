@@ -1,13 +1,62 @@
+# ---------------------------------------------------------------------------
+# COLAB PARITY PINS -- the scientific stack, held to what Google Colab ships.
+#
+# WHY THESE ARE PINNED AND THE REST ARE NOT. This image is the execution gate
+# for the CSC 408 curriculum, and those notebooks run for students EXCLUSIVELY
+# in Google Colab. A gate that validates against a different stack is not
+# predicting what students see, which is the only thing the gate is for.
+#
+# These packages arrive UNPINNED from the ancestors -- numpy and pandas from
+# py-sci-base, scikit-learn from py-sci-jupyter-ml -- on top of a `:latest`
+# base tag. A floating tag on a floating base: the versions moved without
+# anyone touching a consuming repo, and nothing recorded that they had.
+# Measured 2026-09-22, `ghcr.io/mk-imagine/py-dsml:latest` had gone to
+# pandas 3.0.5 / numpy 2.5.3 / scikit-learn 1.9.1 while Colab was still on
+# pandas 2.2.3 / numpy 2.1.3 / scikit-learn 1.6.1.
+#
+# That is not cosmetic. Two measured consequences:
+#   * pandas 3 pickles StringDtype with an argument pandas 2.2.3 cannot accept,
+#     so any bundle holding a string column raises TypeError on load in Colab.
+#   * RandomForest results move across scikit-learn 1.6 -> 1.9 DESPITE a pinned
+#     random_state. On one curriculum comparison the seed-to-seed spread went
+#     0.0577 -> 0.0772 and the reported margin-to-noise ratio 4.0:1 -> 3.0:1.
+#     The published figure would have been one a student could not reproduce.
+#
+# Pinned here rather than in the ancestors deliberately: Colab parity is a
+# CURRICULUM constraint, and imposing it on py-sci-base would force a teaching
+# requirement onto every unrelated downstream image. pip resolves this file
+# last, so these downgrade whatever the ancestors installed.
+#
+# HOW TO UPDATE. Do not bump these to chase upstream releases. Re-probe Colab
+# (a fresh notebook, `importlib.metadata.version` over this list) and match it.
+# Colab is the source of truth; this file is a mirror of it.
+# Probed 2026-09-22 against Colab running Python 3.13.15.
+# ---------------------------------------------------------------------------
+pandas==2.2.3
+numpy==2.1.3
+scikit-learn==1.6.1
+scipy==1.16.3
+statsmodels==0.15.0
+
+# sklearn's parallelism backend. Pinned with the rest because thread-pool
+# behaviour is one of the ways an ensemble's results can move between
+# environments that agree on every library version that gets quoted.
+joblib==1.6.0
+threadpoolctl==3.6.0
+
+# Reading the curriculum's .xlsx sources.
+openpyxl==3.1.5
+
 # Programmatic notebook execution (headless build/verify pipelines)
 nbclient
 nbformat
 
 # Plotting
-matplotlib
-seaborn
+matplotlib==3.10.0
+seaborn==0.13.2
 
 # Serialization beyond pickle (lambdas, closures, model bundles)
-dill
+dill==0.4.1
 
 # Verification cells and build-script tests
 pytest
