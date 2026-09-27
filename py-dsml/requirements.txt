@@ -67,6 +67,14 @@ pytest
 # not rest on another package's dependency tree.
 pillow
 
+# Fetching figures from Google Drive. The curriculum's display_image() helper
+# downloads each embedded SVG with gdown. Colab preinstalls it, so without it
+# here the gate stores "gdown is not installed" in place of every figure, and
+# stops matching what students see. Unpinned like nbclient and pytest: it only
+# moves bytes and never touches a computed result, and the 2026-09-22 Colab
+# probe did not record its version. Re-probe and pin it if that ever matters.
+gdown
+
 # Perceptual image hashing. Backs the image-dedup leakage screen: near-duplicate
 # images split across train and test inflate scores without any model learning
 # anything, and exact-hash comparison misses them because a resize or

@@ -215,7 +215,7 @@ Each image's full dependency list, including packages inherited from parent imag
 
 **Additional system packages:** fonts-dejavu, fontconfig, librsvg2-bin
 
-**Additional Python packages:** nbclient, nbformat, matplotlib, seaborn, dill, pytest, pillow, imagehash
+**Additional Python packages:** nbclient, nbformat, matplotlib, seaborn, dill, pytest, pillow, gdown, imagehash
 
 **Image metadata:** `/home/devuser/.local/bin` prepended to `PATH` via `ENV`, so console scripts from a `pip install` run inside a live container (which falls back to the user scheme under the non-root default user) are found. It composes with rather than replaces the inherited LaTeX `remoteEnv`, which interpolates `${containerEnv:PATH}`.
 
