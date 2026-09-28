@@ -161,8 +161,14 @@ jobs:
         id: meta
         with:
           images: ${{ env.IMAGE }}
+          # :colab is an alias of :latest, always the same manifest. It exists
+          # to state intent: this image is held to Google Colab's library
+          # versions (see py-dsml/requirements.txt), which :latest alone does
+          # not say. It is NOT a second stack. Consumers that must not drift
+          # (the CSC 408 execution gate) pin by digest, not by either tag.
           tags: |
             type=raw,value=latest
+            type=raw,value=colab
             type=sha,prefix=
 
       - name: Create manifest list and push
@@ -192,3 +198,12 @@ jobs:
               || { echo "::error::linux/$arch missing from ${IMAGE}:latest manifest"; exit 1; }
             echo "ok: linux/$arch present"
           done
+
+      # :colab must be the same manifest as :latest -- an alias, never a fork.
+      - name: Verify :colab and :latest are the same image
+        run: |
+          latest=$(docker buildx imagetools inspect "${IMAGE}:latest" --format '{{json .Manifest}}' | jq -r .digest)
+          colab=$(docker buildx imagetools inspect "${IMAGE}:colab" --format '{{json .Manifest}}' | jq -r .digest)
+          echo "latest=$latest colab=$colab"
+          [ -n "$latest" ] && [ "$latest" = "$colab" ] \
+            || { echo "::error::${IMAGE}:colab ($colab) differs from :latest ($latest)"; exit 1; }

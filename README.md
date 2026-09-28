@@ -217,6 +217,8 @@ Each image's full dependency list, including packages inherited from parent imag
 
 **Additional Python packages:** nbclient, nbformat, matplotlib, seaborn, dill, pytest, pillow, gdown, imagehash
 
+**Tags:** `:latest`, `:colab` (an alias of `:latest`, always the same image; it names the Colab version pinning) and `:<commit-sha>`.
+
 **Image metadata:** `/home/devuser/.local/bin` prepended to `PATH` via `ENV`, so console scripts from a `pip install` run inside a live container (which falls back to the user scheme under the non-root default user) are found. It composes with rather than replaces the inherited LaTeX `remoteEnv`, which interpolates `${containerEnv:PATH}`.
 
 **Rendering:** SVG figures are rasterized with `rsvg-convert` (the only SVG renderer in the image, deliberately) against DejaVu Sans. See [`py-dsml/README.md`](py-dsml/README.md) for why `cairosvg` and PyMuPDF were measured and rejected, and for the ink-bounds measurement recipe.
