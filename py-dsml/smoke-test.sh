@@ -72,7 +72,7 @@ import os, tempfile
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import dill, imagehash, nbclient, nbformat, seaborn, torch
+import dill, gdown, imagehash, nbclient, nbformat, seaborn, torch
 from PIL import Image
 
 d = tempfile.mkdtemp()
@@ -96,7 +96,7 @@ assert dill.loads(dill.dumps(lambda v: v + 1))(1) == 2
 assert len(str(imagehash.phash(Image.open(os.path.join(d, "figure.png"))))) == 16
 print(d)
 PY
-) || fail "notebook execution, plotting, dill or imagehash does not work"
+) || fail "notebook execution, plotting, dill, gdown or imagehash does not work"
 
 rsvg-convert "$out/figure.svg" -o "$out/from-svg.png" || fail "rsvg-convert could not render the SVG"
 [ -s "$out/from-svg.png" ] || fail "rsvg-convert produced an empty PNG"

@@ -15,6 +15,7 @@ and verify notebooks without installing anything at container start.
 | `dill` | Serialization beyond `pickle` — lambdas, closures, and fitted-model bundles. |
 | `pytest` | Verification cells and build-script tests. |
 | `pillow` | Read back and measure rendered figures. Already arrives as a `matplotlib` dependency; declared because figure scripts import it directly. |
+| `gdown` | Fetches figures from Google Drive for the curriculum's `display_image()` helper. Colab preinstalls it; without it the execution gate stores an error message where each figure should be. Unpinned: it moves bytes and never touches a computed result. |
 | `imagehash` | Perceptual image hashing for the image-dedup leakage screen — catches near-duplicates split across train/test, which exact hashing misses because a resize changes every byte. |
 | `librsvg2-bin` (apt) | `rsvg-convert`, the SVG renderer — see [Rendering figures](#rendering-figures). Pulls `libcairo2` itself, so cairo is not declared separately. |
 | `fonts-dejavu`, `fontconfig` (apt) | The figure typeface, plus the means to verify it actually resolved. |
