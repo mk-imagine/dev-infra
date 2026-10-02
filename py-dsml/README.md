@@ -14,7 +14,9 @@ and verify notebooks without installing anything at container start.
 | `matplotlib`, `seaborn` | Plotting. `seaborn` also pulls the statistical-plot layer used for distribution and correlation figures. |
 | `dill` | Serialization beyond `pickle` — lambdas, closures, and fitted-model bundles. |
 | `pytest` | Verification cells and build-script tests. |
-| `pillow` | Read back and measure rendered figures. Already arrives as a `matplotlib` dependency; declared because figure scripts import it directly. |
+| `pillow` | Read back and measure rendered figures, and decode the training images CSC 509 feeds through torchvision. Already arrives as a `matplotlib` dependency; declared because figure scripts import it directly, and pinned to Colab (11.3.0) because image decoding sits under computed results. |
+| `torch`, `torchvision`, `torchaudio` (re-pinned) | Inherited from `py-sci-jupyter-torch` unpinned, and pinned here to Colab's CPU-runtime builds (`2.11.0+cpu` / `0.26.0+cpu` / `2.11.0+cpu`) from the PyTorch CPU index. The `+cpu` label exists only on that index, so a bad index fails the build instead of resolving PyPI's CUDA wheel. |
+| `tensorboard` | CSC 509 notebooks log training with `torch.utils.tensorboard.SummaryWriter`; Colab preinstalls it. The smoke test also reads the event files back, which is how a gate capture re-plots curves the live `%tensorboard` view cannot store. |
 | `gdown` | Fetches figures from Google Drive for the curriculum's `display_image()` helper. Colab preinstalls it; without it the execution gate stores an error message where each figure should be. Unpinned: it moves bytes and never touches a computed result. |
 | `imagehash` | Perceptual image hashing for the image-dedup leakage screen — catches near-duplicates split across train/test, which exact hashing misses because a resize changes every byte. |
 | `librsvg2-bin` (apt) | `rsvg-convert`, the SVG renderer — see [Rendering figures](#rendering-figures). Pulls `libcairo2` itself, so cairo is not declared separately. |
@@ -23,7 +25,7 @@ and verify notebooks without installing anything at container start.
 **Inherited from `py-sci-base`:** git, curl, build-essential, poppler-utils, numpy, pandas, openpyxl
 **Inherited from `py-sci-jupyter`:** ipython, ipywidgets, ipykernel
 **Inherited from `py-sci-jupyter-ml`:** scikit-learn, scikit-optimize, optuna
-**Inherited from `py-sci-jupyter-torch`:** torch, torchvision, torchaudio (CPU wheels)
+**Inherited from `py-sci-jupyter-torch`:** torch, torchvision, torchaudio (CPU wheels; re-pinned to Colab here — see the table above)
 **Inherited from `py-sci-jupyter-torch-latex`:** the `devcontainer.metadata` LABEL — `latex-shared` volume mount, `/opt/TinyTeX/bin/current` on `PATH`, LaTeX Workshop extensions/settings
 
 ## Rendering figures

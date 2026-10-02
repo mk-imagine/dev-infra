@@ -2,8 +2,8 @@
 # COLAB PARITY PINS -- the scientific stack, held to what Google Colab ships.
 #
 # WHY THESE ARE PINNED AND THE REST ARE NOT. This image is the execution gate
-# for the CSC 408 curriculum, and those notebooks run for students EXCLUSIVELY
-# in Google Colab. A gate that validates against a different stack is not
+# for the CSC 408 and CSC 509 curricula, and those notebooks run for students
+# EXCLUSIVELY in Google Colab. A gate that validates against a different stack is not
 # predicting what students see, which is the only thing the gate is for.
 #
 # These packages arrive UNPINNED from the ancestors -- numpy and pandas from
@@ -44,6 +44,29 @@ statsmodels==0.15.0
 joblib==1.6.0
 threadpoolctl==3.6.0
 
+# PyTorch stack, for CSC 509. Pinned to Colab's CPU runtime (googlecolab/
+# backend-info pip-freeze.txt, fetched 2026-10-02). torch arrives UNPINNED from
+# py-sci-jupyter-torch and had drifted to 2.14.0 / torchvision 0.29.0 while
+# Colab ships 2.11.0 / 0.26.0 -- the same floating-base drift described above.
+#
+# The `+cpu` local version is what makes the extra index safe here. Those
+# builds exist only on the PyTorch CPU index, so a missing or wrong index fails
+# the install loudly instead of resolving PyPI's CUDA build of the same version
+# (the reason py-torch-cuda replaces the index outright). Colab's GPU runtime
+# ships the cu130 builds of the same versions; this image is CPU-only, so CPU
+# vs. GPU numeric differences are reconciled by tolerance in the consuming
+# repo's gate, not here.
+#
+# tensorboard is not in any ancestor. Colab preinstalls it, and CSC 509 logs
+# training runs with torch.utils.tensorboard.SummaryWriter; without it every
+# such notebook fails at import in the gate while working for students.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.11.0+cpu
+torchvision==0.26.0+cpu
+torchaudio==2.11.0+cpu
+tensorboard==2.21.0
+tensorboard-data-server==0.7.2
+
 # Reading the curriculum's .xlsx sources.
 openpyxl==3.1.5
 
@@ -61,11 +84,12 @@ dill==0.4.1
 # Verification cells and build-script tests
 pytest
 
-# Figure measurement -- reading back the PNGs that rsvg-convert produces. pillow
-# already arrives as a matplotlib dependency, so this install is a no-op; it is
-# declared because figure scripts import it directly, and a direct import should
-# not rest on another package's dependency tree.
-pillow
+# Figure measurement -- reading back the PNGs that rsvg-convert produces -- and,
+# for CSC 509, decoding every training image a torchvision transform sees. It
+# arrives as a matplotlib/torchvision dependency but is declared because figure
+# scripts import it directly. Pinned to Colab (11.3.0; it had floated to 12.3.0)
+# because image decoding sits directly under computed results in CSC 509.
+pillow==11.3.0
 
 # Fetching figures from Google Drive. The curriculum's display_image() helper
 # downloads each embedded SVG with gdown. Colab preinstalls it, so without it

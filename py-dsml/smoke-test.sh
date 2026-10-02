@@ -29,8 +29,8 @@ esac
 
 python3 -m pytest --version >/dev/null 2>&1 || fail "pytest does not run"
 
-# COLAB PARITY. This image is the CSC 408 execution gate and those notebooks run
-# for students only in Google Colab, so the scientific stack is pinned to match
+# COLAB PARITY. This image is the CSC 408 / CSC 509 execution gate and those
+# notebooks run for students only in Google Colab, so the scientific stack is pinned to match
 # Colab exactly (see requirements.txt for the full reasoning and the measured
 # consequences of drift).
 #
@@ -50,7 +50,11 @@ EXPECTED = {
     "pandas": "2.2.3", "numpy": "2.1.3", "scikit-learn": "1.6.1",
     "scipy": "1.16.3", "statsmodels": "0.15.0", "joblib": "1.6.0",
     "threadpoolctl": "3.6.0", "openpyxl": "3.1.5", "dill": "0.4.1",
-    "matplotlib": "3.10.0", "seaborn": "0.13.2",
+    "matplotlib": "3.10.0", "seaborn": "0.13.2", "pillow": "11.3.0",
+    # Colab's CPU runtime builds; the +cpu label is part of the version string.
+    "torch": "2.11.0+cpu", "torchvision": "0.26.0+cpu",
+    "torchaudio": "2.11.0+cpu", "tensorboard": "2.21.0",
+    "tensorboard-data-server": "0.7.2",
 }
 bad = []
 for pkg, want in EXPECTED.items():
@@ -94,9 +98,27 @@ assert dill.loads(dill.dumps(lambda v: v + 1))(1) == 2
 
 # imagehash on the rendered figure.
 assert len(str(imagehash.phash(Image.open(os.path.join(d, "figure.png"))))) == 16
+
+# TensorBoard: a training loop's SummaryWriter output must be readable back,
+# because a stored notebook output cannot hold the live %tensorboard view and
+# gate captures re-plot the logged curves from the event files instead.
+from torch.utils.tensorboard import SummaryWriter
+from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
+logdir = os.path.join(d, "runs")
+w = SummaryWriter(logdir)
+for step in range(3):
+    w.add_scalar("loss", 1.0 / (step + 1), step)
+w.close()
+ea = EventAccumulator(logdir)
+ea.Reload()
+assert [round(e.value, 3) for e in ea.Scalars("loss")] == [1.0, 0.5, 0.333]
+
+# torchvision decodes through PIL into a tensor.
+from torchvision.transforms.functional import pil_to_tensor
+assert pil_to_tensor(Image.open(os.path.join(d, "figure.png"))).dim() == 3
 print(d)
 PY
-) || fail "notebook execution, plotting, dill, gdown or imagehash does not work"
+) || fail "notebook execution, plotting, dill, gdown, imagehash, tensorboard or torchvision does not work"
 
 rsvg-convert "$out/figure.svg" -o "$out/from-svg.png" || fail "rsvg-convert could not render the SVG"
 [ -s "$out/from-svg.png" ] || fail "rsvg-convert produced an empty PNG"
