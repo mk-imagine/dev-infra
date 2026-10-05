@@ -209,13 +209,13 @@ Each image's full dependency list, including packages inherited from parent imag
 
 **Inherited from `py-sci-jupyter-ml`:** scikit-learn, scikit-optimize, optuna
 
-**Inherited from `py-sci-jupyter-torch`:** torch, torchvision, torchaudio
+**Inherited from `py-sci-jupyter-torch`:** torch, torchvision, torchaudio (re-pinned here to Colab's CPU-runtime builds)
 
 **Inherited from `py-sci-jupyter-torch-latex`:** the LaTeX `devcontainer.metadata` LABEL
 
 **Additional system packages:** fonts-dejavu, fontconfig, librsvg2-bin
 
-**Additional Python packages:** nbclient, nbformat, matplotlib, seaborn, dill, pytest, pillow, gdown, imagehash
+**Additional Python packages:** nbclient, nbformat, matplotlib, seaborn, dill, pytest, pillow, gdown, imagehash, tensorboard
 
 **Tags:** `:latest`, `:colab` (an alias of `:latest`, always the same image; it names the Colab version pinning) and `:<commit-sha>`.
 
