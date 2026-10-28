@@ -117,6 +117,8 @@ the Ampere check above stays manual.
 
 **R images**: Add the package name (with inline comment) to `r-packages.txt` in the relevant image directory. The shared `install.R` script strips comments, skips blanks, and installs only missing packages via CRAN, then re-checks and `stop()`s on any that failed — so a bad package name fails the build rather than shipping a broken image.
 
+A package CRAN has archived cannot go in `r-packages.txt`: `install.R` will not find it in the CRAN index and stops the build. Install its last release from the CRAN archive in the image's Dockerfile instead, with the version pinned in an `ARG` and a trailing `library()` so a failed install fails the build (see `Routliers` in `r-stats-psy`).
+
 **Python images**: Add to `requirements.txt` in the relevant image directory. `#` comments are supported (pip strips them); the existing files use them for per-package rationale.
 
 **LaTeX (latex-sidecar)**: Add to `latex-sidecar/latex_packages.txt`. Comments, blank lines, and `.universal-darwin` entries are stripped at build time by the Dockerfile before passing to `tlmgr install`.
@@ -143,7 +145,8 @@ package per line.
 > directories without also changing the Dockerfile to read it.
 
 **Pinned versions** live in Dockerfile `ARG`/`FROM` lines, not in any list file:
-`r-stats-base` (`rocker/r-ver:4.5.2`, `ARG PANDOC_VERSION`), `py-sci-base`
+`r-stats-base` (`rocker/r-ver:4.5.2`, `ARG PANDOC_VERSION`), `r-stats-psy`
+(`ARG ROUTLIERS_VERSION`), `py-sci-base`
 (`python:3.13-slim`), `plantuml` (`ARG PLANTUML_VERSION`). Bumping any of these
 is a base-image change — expect the whole downstream chain to rebuild.
 
