@@ -15,7 +15,8 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 tmp=$(mktemp -d)
 cat > "$tmp/check.R" <<'R'
 pkgs <- c("psych", "emmeans", "car", "effectsize", "heplots", "ppcor",
-          "lm.beta", "agricolae", "mvoutlier", "interactions")
+          "lm.beta", "agricolae", "mvoutlier", "interactions", "candisc",
+          "corpcor", "Routliers")
 for (p in pkgs) suppressPackageStartupMessages(library(p, character.only = TRUE))
 
 # The core workflow runs: a model, its marginal means, a type-II ANOVA, and a
@@ -24,6 +25,17 @@ fit <- lm(mpg ~ factor(cyl), data = mtcars)
 stopifnot(nrow(as.data.frame(emmeans(fit, "cyl"))) == 3)
 stopifnot("factor(cyl)" %in% rownames(car::Anova(fit)))
 stopifnot(abs(psych::describe(mtcars$mpg)$mean - mean(mtcars$mpg)) < 1e-9)
+
+# A canonical correlation runs on heplots' Rohwer data: 3 ability tests against
+# 5 paired-associate tasks give 3 canonical variate pairs.
+data(Rohwer, package = "heplots")
+stopifnot(length(candisc::cancor(Rohwer[, 3:5], Rohwer[, 6:10])$cancor) == 3)
+
+# Routliers' MCD screen (installed from the CRAN archive) returns one distance
+# per case, and corpcor's shrinkage correlation matrix is positive definite.
+mcd <- Routliers::outliers_mcd(mtcars[, c("mpg", "hp", "wt")], h = 0.75, alpha = 0.001)
+stopifnot(length(mcd$dist_from_center) == nrow(mtcars))
+stopifnot(corpcor::is.positive.definite(corpcor::cor.shrink(mtcars, verbose = FALSE)))
 R
 Rscript "$tmp/check.R" >"$tmp/check.log" 2>&1 || { tail -25 "$tmp/check.log" >&2; fail "the psychology stats stack does not work"; }
 

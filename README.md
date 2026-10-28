@@ -119,7 +119,8 @@ Each image's full dependency list, including packages inherited from parent imag
 | Category | Packages |
 |----------|----------|
 | Core psychology statistics | psych, emmeans, car, effectsize |
-| Specialized analyses | heplots, ppcor, lm.beta, agricolae, mvoutlier, interactions |
+| Specialized analyses | heplots, ppcor, lm.beta, agricolae, mvoutlier, interactions, candisc, corpcor |
+| From the CRAN archive (pinned) | Routliers 0.0.0.3 (archived on CRAN 2026-05-08; see the Dockerfile) |
 
 ---
 

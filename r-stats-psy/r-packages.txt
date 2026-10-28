@@ -11,3 +11,5 @@ lm.beta         # standardized regression coefficients (beta weights)
 agricolae       # Tukey, Duncan, and other multiple comparison procedures
 mvoutlier       # multivariate outlier detection
 interactions    # probing interactions in multiple regression
+candisc         # canonical correlation (cancor, redundancy) and canonical discriminant analysis
+corpcor         # shrinkage estimation of covariance and (partial) correlation matrices
